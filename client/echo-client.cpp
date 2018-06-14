@@ -267,7 +267,7 @@ lcore_execute(__attribute__((unused)) void *arg)
             for (i = 0; i < n; i++)
             {
                 pkt_ptr = rte_pktmbuf_append(bufs[i], pkt_size(myarg->type));
-                pkt_header_build(pkt_ptr, myarg->srcs.at(i), myarg->dst,
+                pkt_header_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
                                  myarg->type, queue);
                 pkt_set_attribute(bufs[i]);
                 pkt_client_data_build(pkt_ptr, myarg->type);
@@ -346,7 +346,8 @@ int main(int argc, char **argv)
     {
         largs[i].tid = i;
         largs[i].phase = &phase;
-        largs[i].type = (pkt_type)atoi(argv[1]);
+        largs[i].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
+        largs[i].dst = destination;
     }
     ret = ports_init(largs, threadnum, srcips);
     if (ret != 0)
