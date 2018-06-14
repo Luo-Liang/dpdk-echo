@@ -40,7 +40,7 @@
 #include <sys/queue.h>
 #include <unistd.h>
 #include <sys/time.h>
-
+#include <string>
 #include <rte_memory.h>
 #include <rte_memzone.h>
 #include <rte_launch.h>
@@ -52,6 +52,7 @@
 #include <vector>
 #include "../shared/cluster-cfg.h"
 #include "../shared/pkt-utils.h"
+#include "../shared/argparse.h"
 
 #define NUM_MBUFS 8191
 #define MBUF_CACHE_SIZE 250
@@ -69,13 +70,13 @@ enum benchmark_phase
 
 struct lcore_args
 {
-    std::vector<MACAddress> srcMacs;
-    std::vector<IP> srcIPs;
+    std::vector<endhost> srcs;
+    endhost dst;
     enum pkt_type type;
     uint8_t tid;
     volatile enum benchmark_phase *phase;
     struct rte_mempool *pool;
-} __attribute__((packed));
+} ;//__attribute__((packed));
 
 struct settings
 {
@@ -94,7 +95,8 @@ pkt_dump(struct rte_mbuf *buf)
 
 static inline int
 ports_init(struct lcore_args *largs,
-           uint8_t threadnum)
+           uint8_t threadnum,
+           std::vector<std::string> suppliedIPs)
 {
     rte_eth_conf port_conf_default;
     memset(&port_conf_default, 0, sizeof(rte_eth_conf));
@@ -112,11 +114,11 @@ ports_init(struct lcore_args *largs,
     uint8_t q, rx_rings, tx_rings, nb_ports;
     int retval, i;
     char bufpool_name[32];
-    struct ether_addr myaddr;
     uint16_t port;
 
     nb_ports = rte_eth_dev_count_avail();
     printf("Number of ports of the server is %" PRIu8 "\n", nb_ports);
+    assert(nb_ports <= suppliedIPs.size());
 
     for (i = 0; i < threadnum; i++)
     {
@@ -130,12 +132,14 @@ ports_init(struct lcore_args *largs,
             rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed\n");
         }
         //largs[i].src_id = (int *)malloc(sizeof(int) * nb_ports);
-        largs[i].srcIPs.resize(nb_ports);
-        largs[i].srcMacs.resize(nb_ports);
+        largs[i].srcs.resize(nb_ports);
+        //largs[i].srcMacs.resize(nb_ports);
         for (port = 0; port < nb_ports; port++)
         {
-            rte_eth_macaddr_get(port, &myaddr);
-            largs[i].src_id[port] = get_endhost_id(myaddr);
+            rte_eth_macaddr_get(port, (ether_addr *)largs[i].srcs.at(port).mac);
+            //since nb_ports < suppliedIp.size, assign port-th to suppliedIps
+            IPFromString(suppliedIPs.at(port), largs[i].srcs.at(port).ip);
+            //largs[i].srcMacs.push_back( = get_endhost_id(myaddr);
         }
     }
 
@@ -154,12 +158,11 @@ ports_init(struct lcore_args *largs,
         //rte_eth_conf* pConf;
         //rte_eth_dev* pDev = &rte_eth_devices[port];
         rte_eth_dev_info devInfo;
-        rte_eth_dev_info_get(port, &devInfo);                
+        rte_eth_dev_info_get(port, &devInfo);
         rxqConf = devInfo.default_rxconf;
         //pConf = &pDev->data->dev_conf;
         //rxqConf.offloads = pConf->rxmode.offloads;
         /* Configure the Ethernet device of a given port */
-     
 
         /* Allocate and set up RX queues for a given Ethernet port */
         for (q = 0; q < rx_rings; q++)
@@ -171,7 +174,6 @@ ports_init(struct lcore_args *largs,
                 return retval;
             }
         }
-
 
         rte_eth_txconf txqConf;
         txqConf = devInfo.default_txconf;
@@ -201,7 +203,6 @@ ports_init(struct lcore_args *largs,
 
     return 0;
 }
-
 
 static int
 lcore_execute(__attribute__((unused)) void *arg)
@@ -266,14 +267,14 @@ lcore_execute(__attribute__((unused)) void *arg)
             for (i = 0; i < n; i++)
             {
                 pkt_ptr = rte_pktmbuf_append(bufs[i], pkt_size(myarg->type));
-                pkt_header_build(pkt_ptr, myarg->src_id[port], myarg->des_id,
+                pkt_header_build(pkt_ptr, myarg->srcs.at(i), myarg->dst,
                                  myarg->type, queue);
                 pkt_set_attribute(bufs[i]);
                 pkt_client_data_build(pkt_ptr, myarg->type);
                 //pkt_dump(bufs[i]);
             }
             i = rte_eth_tx_burst(port, queue, bufs, n);
-            pktCntr+=i;
+            pktCntr += i;
             /* free non-sent buffers */
             for (; i < n; i++)
             {
@@ -320,11 +321,23 @@ int main(int argc, char **argv)
     argv += ret;
 
     /* Initialize application args */
-    if (argc != 4)
+    /*if (argc != 4)
     {
         printf("Usage: %s <type> <dest IP> <dest MAC>\n", argv[0]);
         rte_exit(EXIT_FAILURE, "Error: invalid arguments\n");
-    }
+    }*/
+
+    ArgumentParser ap;
+    ap.addArgument("--srcIps", '+', false);
+    ap.addArgument("--dstIp", 1, false);
+    ap.addArgument("--dstMac", 1, false);
+    ap.parse(argc, (const char **)argv);
+
+    std::vector<std::string> srcips = ap.retrieve<std::vector<std::string>>("srcIps");
+    endhost destination;
+    destination.id = 9367;
+    IPFromString(ap.retrieve<std::string>("dstIp"), destination.ip);
+    MACFromString(ap.retrieve<std::string>("dstMac"), destination.mac);
     InitializePayloadConstants();
     /* Initialize NIC ports */
     threadnum = rte_lcore_count() - 1;
@@ -334,10 +347,9 @@ int main(int argc, char **argv)
         largs[i].tid = i;
         largs[i].phase = &phase;
         largs[i].type = (pkt_type)atoi(argv[1]);
-        largs[i].des_id = atoi(argv[2]);
     }
-    ret = ports_init(largs, threadnum);
-    if(ret != 0)
+    ret = ports_init(largs, threadnum, srcips);
+    if (ret != 0)
     {
         printf("port init failed. %s.\n", rte_strerror(rte_errno));
     }
@@ -377,10 +389,6 @@ int main(int argc, char **argv)
     printf("Throughput is %lf reqs/s\n", (tot_proc_pkts + 0.0) /
                                              (mysettings.run_time + 0.0));
 
-    for (i = 0; i < threadnum; i++)
-    {
-        free(largs->src_id);
-    }
     free(largs);
     return 0;
 }

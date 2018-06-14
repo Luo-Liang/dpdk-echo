@@ -7,7 +7,8 @@
 #include <stdint.h>
 #include <rte_mbuf.h>
 #include <string>
-
+#include <cassert>
+#include <cstdio>
 enum pkt_type {
     ECHO,
 };
@@ -19,22 +20,16 @@ struct udphdr {
   u_short uh_sum;/* udp checksum */
 };
 
-struct MACAddress
-{
-  uint32_t Bytes[6];
-  static MACAddress FromString(std::string hex);
-};
-
-struct IP
-{
-  uint32_t Bytes[4];
-  static IP FromString(std::string ip);
-};
+void MACFromString(std::string str, uint8_t bytes[6]);
+void IPFromString(std::string str, uint8_t bytes[4]);
 
 
 uint16_t pkt_size (enum pkt_type type);
-void pkt_header_build(char *pkt_ptr, int src_id, int des_id, 
-                      enum pkt_type type, uint8_t tid);
+void pkt_header_build(char *pkt_ptr,
+                      endhost& src,
+                      endhost& des,
+                      enum pkt_type type,
+                      uint8_t tid);
 void pkt_set_attribute(struct rte_mbuf *buf);
 void pkt_client_data_build(char *pkt_ptr, enum pkt_type type);
 int pkt_client_process(struct rte_mbuf *buf, enum pkt_type type);

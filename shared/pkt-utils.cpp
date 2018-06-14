@@ -20,28 +20,34 @@
 #define UDP_SRC_PORT 1234
 #define UDP_DES_PORT 5678
 
-MACAddress MACAddress::FromString(std::string str)
+void MACFromString(std::string str, uint8_t Bytes[6])
 {
-    MACAddress ret;
+    int bytes[6];
     if (std::sscanf(str.c_str(),
                     "%02x:%02x:%02x:%02x:%02x:%02x",
-                    &ret.Bytes[0], &ret.Bytes[1], &ret.Bytes[2],
-                    &ret.Bytes[3], &ret.Bytes[4], &ret.Bytes[5]) != 6)
+                    &bytes[0], &bytes[1], &bytes[2],
+                    &bytes[3], &bytes[4], &bytes[5]) != 6)
     {
         throw std::runtime_error(str + std::string(" is an invalid MAC address"));
     }
-    return ret;
+    for (int i = 0; i < 6; i++)
+    {
+        Bytes[i] = (uint8_t)bytes[i];
+    }
 }
 
-IP IP::FromString(std::string str)
+void IPFromString(std::string str, uint8_t Bytes[4])
 {
-    IP ret;
-    if (4 != sscanf(str.c_str(), "%d.%d.%d.%d", ret.Bytes, ret.Bytes + 1, ret.Bytes + 2, ret.Bytes + 3))
+    int bytes[4];
+    if (4 != sscanf(str.c_str(), "%d.%d.%d.%d", bytes, bytes + 1, bytes + 2, bytes + 3))
     {
-         throw std::runtime_error(str + std::string(" is an invalid IP address"));
-       
+        throw std::runtime_error(str + std::string(" is an invalid IP address"));
     }
-    return ret;
+
+    for (int i = 0; i < 4; i++)
+    {
+        Bytes[i] = (uint8_t)bytes[i];
+    }
 }
 
 /* Common Header */
@@ -54,6 +60,7 @@ struct common_hdr
 
 /* Application Headers */
 #define ECHO_PAYLOAD_LEN 5
+//int ECHO_PAYLOAD_LEN = 0;
 std::string contents;
 
 void InitializePayloadConstants()
@@ -65,6 +72,7 @@ void InitializePayloadConstants()
     {
         contents += templatedStr.at(i % templatedStr.size());
     }
+    //ECHO_PAYLOAD_LEN = pLen;
 }
 
 struct echo_hdr
@@ -124,27 +132,22 @@ pkt_swap_address(struct common_hdr *comhdr)
     comhdr->ip.src_addr = tmp_ip;
     comhdr->udp.src_port = tmp_udp;
 
-    // Clear old checksum
-    comhdr->ip.hdr_checksum = 0;
-    comhdr->ip.hdr_checksum = rte_ipv4_cksum(&comhdr->ip);
+    // Clear old checksumcomhdr->ip);
     comhdr->udp.dgram_cksum = 0;
 }
 
 void pkt_header_build(char *pkt_ptr,
-                      int src_id,
-                      int des_id,
+                      endhost& src,
+                      endhost& des,
                       enum pkt_type type,
                       uint8_t tid)
 {
-    struct common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
-    struct endhost *mysrc = get_endhost(src_id);
-    struct endhost *mydes = get_endhost(des_id);
+    common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
 
     // Ethernet header
-    rte_memcpy(myhdr->ether.d_addr.addr_bytes, mydes->mac, ETHER_ADDR_LEN);
-    rte_memcpy(myhdr->ether.s_addr.addr_bytes, mysrc->mac, ETHER_ADDR_LEN);
+    rte_memcpy(myhdr->ether.d_addr.addr_bytes, des.mac, ETHER_ADDR_LEN);
+    rte_memcpy(myhdr->ether.s_addr.addr_bytes, src.mac, ETHER_ADDR_LEN);
     myhdr->ether.ether_type = htons(ETHER_TYPE_IPv4);
-    udphdr uhdr;
     // IP header
     myhdr->ip.version_ihl = 0x45;
     myhdr->ip.total_length = htons(pkt_size(type) - ETHER_HEADER_LEN);
@@ -154,13 +157,13 @@ void pkt_header_build(char *pkt_ptr,
     myhdr->ip.next_proto_id = IPPROTO_UDP;
     //myhdr->ip.hdr_checksum = 0;
     myhdr->ip.hdr_checksum = 0; // htons(0xa122);//rte_ipv4_cksum(&myhdr->ip);
-    myhdr->ip.src_addr = ip_2_uint32(mysrc->ip);
-    myhdr->ip.dst_addr = ip_2_uint32(mydes->ip);
+    myhdr->ip.src_addr = ip_2_uint32(src.ip);
+    myhdr->ip.dst_addr = ip_2_uint32(des.ip);
     //printf("building a udp packet from ip = %d.%d.%d.%d to %d.%d.%d.%d\n", mysrc->ip[0], mysrc->ip[1], mysrc->ip[2], mysrc->ip[3], mydes->ip[0], mydes->ip[1], mydes->ip[2], mydes->ip[3]);
     // UDP header
-    myhdr->udp.src_port = uhdr.uh_sport = htons(UDP_SRC_PORT + tid);
-    myhdr->udp.dst_port = uhdr.uh_dport = htons(UDP_DES_PORT);
-    myhdr->udp.dgram_len = uhdr.uh_ulen = htons(pkt_size(type) - ETHER_HEADER_LEN - IP_HEADER_LEN); // -
+    myhdr->udp.src_port = htons(UDP_SRC_PORT + tid);
+    myhdr->udp.dst_port = htons(UDP_DES_PORT);
+    myhdr->udp.dgram_len = htons(pkt_size(type) - ETHER_HEADER_LEN - IP_HEADER_LEN); // -
         //UDP_HEADER_LEN;
     myhdr->udp.dgram_cksum = 0; // uhdr.uh_sum = htons(0xba29);
     //myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
