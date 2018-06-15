@@ -50,6 +50,7 @@
 #include <rte_debug.h>
 #include <rte_ethdev.h>
 #include <vector>
+#include <unordered_map>
 #include "../shared/cluster-cfg.h"
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
@@ -58,7 +59,7 @@
 #define MBUF_CACHE_SIZE 250
 #define RX_RING_SIZE 512
 #define TX_RING_SIZE 512
-#define BATCH_SIZE 36
+#define BATCH_SIZE 1
 #define rte_eth_dev_count_avail rte_eth_dev_count
 enum benchmark_phase
 {
@@ -76,7 +77,12 @@ struct lcore_args
     uint8_t tid;
     volatile enum benchmark_phase *phase;
     struct rte_mempool *pool;
-} ;//__attribute__((packed));
+    std::vector<uint32_t> samples;
+    size_t counter;
+    std::vector<uint32_t> associatedPorts;
+    //std::vector<uint32_t> coreIdx2LCoreId;
+    uint32_t CoreID;
+}; //__attribute__((packed));
 
 struct settings
 {
@@ -86,6 +92,7 @@ struct settings
 } __attribute__((packed));
 
 uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
+std::unordered_map<uint32_t, uint32_t> lCore2Idx;
 /*static inline void 
 pkt_dump(struct rte_mbuf *buf)
 {
@@ -120,13 +127,20 @@ ports_init(struct lcore_args *largs,
     printf("Number of ports of the server is %" PRIu8 "\n", nb_ports);
     assert(nb_ports <= suppliedIPs.size());
 
+    //now assign port to cores.
+    for (int i = 0; i < nb_ports; i++)
+    {
+        auto targetThread = i % threadnum;
+        largs[targetThread].associatedPorts.push_back(i);
+    }
+
     for (i = 0; i < threadnum; i++)
     {
-        largs[i].tid = i;
+        largs[i].tid = rte_lcore_id();
         sprintf(bufpool_name, "bufpool_%d", i);
         largs[i].pool = rte_pktmbuf_pool_create(bufpool_name,
-                                                NUM_MBUFS * threadnum, MBUF_CACHE_SIZE, 0,
-                                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+                                                NUM_MBUFS, MBUF_CACHE_SIZE, 0,
+                                                RTE_MBUF_DEFAULT_BUF_SIZE, largs[i].CoreID);
         if (largs[i].pool == NULL)
         {
             rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed\n");
@@ -205,7 +219,7 @@ ports_init(struct lcore_args *largs,
 }
 
 static int
-lcore_execute(__attribute__((unused)) void *arg)
+lcore_execute(void *arg)
 {
     int n;
     struct lcore_args *myarg;
@@ -225,13 +239,16 @@ lcore_execute(__attribute__((unused)) void *arg)
     bsz = BATCH_SIZE;
     nb_ports = rte_eth_dev_count_avail();
     int pktCntr = 0;
-    do
+    while(myarg->samples.size() < myarg->counter)
     {
         gettimeofday(&start, NULL);
 
         for (port = 0; port < nb_ports; port++)
         {
             /* Receive and process responses */
+
+            //send a single packet and wait for response.
+            
             do
             {
                 if ((n = rte_eth_rx_burst(port, queue, bufs, bsz)) < 0)
@@ -256,21 +273,24 @@ lcore_execute(__attribute__((unused)) void *arg)
             } while (n == bsz); // More packets in the RX queue
 
             /* Prepare and send requests */
-            for (i = 0; i < bsz; i++)
+            if (0 != rte_pktmbuf_alloc_bulk(pool, bufs, bsz))
             {
-                if ((bufs[i] = rte_pktmbuf_alloc(pool)) == NULL)
-                {
-                    break;
-                }
+                rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
             }
-            n = i;
+            // for (i = 0; i < bsz; i++)
+            // {
+            //     if ((bufs[i] = rte_pktmbuf_alloc(pool)) == NULL)
+            //     {
+            //         break;
+            //     }
+            // }
+            n = bsz;
             for (i = 0; i < n; i++)
             {
                 pkt_ptr = rte_pktmbuf_append(bufs[i], pkt_size(myarg->type));
-                pkt_header_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
-                                 myarg->type, queue);
+                pkt_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
+                          myarg->type, queue);
                 pkt_set_attribute(bufs[i]);
-                pkt_client_data_build(pkt_ptr, myarg->type);
                 //pkt_dump(bufs[i]);
             }
             i = rte_eth_tx_burst(port, queue, bufs, n);
@@ -291,7 +311,7 @@ lcore_execute(__attribute__((unused)) void *arg)
             tot_elapsed += elapsed;
         }
 
-    } while (*phase != BENCHMARK_DONE);
+    }
     printf("worker %" PRIu8 " done. counter = %d\n", myarg->tid, pktCntr);
 
     return 0;
@@ -331,6 +351,9 @@ int main(int argc, char **argv)
     ap.addArgument("--srcIps", '+', false);
     ap.addArgument("--dstIp", 1, false);
     ap.addArgument("--dstMac", 1, false);
+    ap.addArgument("--samples", 1, false);
+    ap.addFinalArgument("output", 1, false);
+
     ap.parse(argc, (const char **)argv);
 
     std::vector<std::string> srcips = ap.retrieve<std::vector<std::string>>("srcIps");
@@ -338,16 +361,39 @@ int main(int argc, char **argv)
     destination.id = 9367;
     IPFromString(ap.retrieve<std::string>("dstIp"), destination.ip);
     MACFromString(ap.retrieve<std::string>("dstMac"), destination.mac);
+
+    size_t samples = ap.retrieve<size_t>("samples");
     InitializePayloadConstants();
     /* Initialize NIC ports */
-    threadnum = rte_lcore_count() - 1;
+    threadnum = rte_lcore_count();
     largs = (lcore_args *)calloc(threadnum, sizeof(*largs));
-    for (i = 0; i < threadnum; i++)
+
+    size_t activatedCoreCntr = 0;
+
+    for (int CORE = 0;; i++)
     {
-        largs[i].tid = i;
-        largs[i].phase = &phase;
-        largs[i].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
-        largs[i].dst = destination;
+        if (CORE == rte_get_master_lcore())
+            continue;
+        if (rte_lcore_is_enabled(CORE))
+        {
+            //get its index.
+            uint32_t idx = rte_lcore_index(CORE);
+            lCore2Idx[CORE] = idx;
+            if (idx >= threadnum)
+            {
+                rte_exit(EXIT_FAILURE, "%d must be less than threadnum.", idx);
+            }
+            largs[idx].CoreID = CORE;
+            largs[idx].tid = idx;
+            largs[idx].phase = &phase;
+            largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
+            largs[idx].dst = destination;
+            largs[idx].counter = samples;
+        }
+        if (activatedCoreCntr == threadnum)
+        {
+            break;
+        }
     }
     ret = ports_init(largs, threadnum, srcips);
     if (ret != 0)
@@ -367,7 +413,7 @@ int main(int argc, char **argv)
     /* call lcore_execute() on every slave lcore */
     RTE_LCORE_FOREACH_SLAVE(lcore_id)
     {
-        rte_eal_remote_launch(lcore_execute, (void *)(largs + lcore_id - 1),
+        rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]),
                               lcore_id);
     }
 

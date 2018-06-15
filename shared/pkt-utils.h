@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <rte_mbuf.h>
+#include <rte_ip.h>
 #include <string>
 #include <cassert>
 #include <cstdio>
@@ -25,7 +26,7 @@ void IPFromString(std::string str, uint8_t bytes[4]);
 
 
 uint16_t pkt_size (enum pkt_type type);
-void pkt_header_build(char *pkt_ptr,
+void pkt_build(char *pkt_ptr,
                       endhost& src,
                       endhost& des,
                       enum pkt_type type,
