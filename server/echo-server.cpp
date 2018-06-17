@@ -65,7 +65,6 @@ struct lcore_args
     uint8_t tid;
     //volatile enum benchmark_phase *phase;
     struct rte_mempool *pool;
-    char *ifid;
 } __attribute__((packed));
 
 struct settings
@@ -106,45 +105,7 @@ port_init(struct lcore_args *largs,
     int retval, i;
     char bufpool_name[32];
     struct ether_addr myaddr;
-    uint16_t port = 65535;
-
-    /*numports = rte_eth_dev_count_avail();
-    printf("Number of ports of the server is %"PRIu8 "\n", numports);
-
-    for(i = 0; i < numports; i++)
-    {
-        struct rte_eth_dev_info redi;
-        rte_eth_dev_info_get(i, &redi);
-        printf("finding device: %s\n", redi.device->name);
-        if(strcmp(redi.device->name, largs->ifid) == 0)
-        {
-            printf("found device %s\n", largs->ifid);
-            port = i;
-            break;
-        }
-    }
-
-    if(port == -1)
-    {
-        printf("cannot find requested device %s\n", largs->ifid);
-        exit(-1);
-    }
-    numports
-    for (i = 0; i < threadnum; i++) {
-        largs[i].tid = i;
-        sprintf(bufpool_name, "bufpool_%d", i);
-        largs[i].pool = rte_pktmbuf_pool_create(bufpool_name,
-                    NUM_MBUFS * threadnum, MBUF_CACHE_SIZE, 0,
-                    RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-        if (largs[i].pool == NULL) {
-            rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed\n");
-        }
-        largs[i].src_id = (int *)malloc(sizeof(int) * nb_ports);
-        for (port = 0; port < nb_ports; port++) {
-            rte_eth_macaddr_get(port, &myaddr);
-            largs[i].src_id[port] = get_endhost_id(myaddr);
-        }
-    }*/
+    uint16_t port;
 
     int nb_ports = rte_eth_dev_count_avail();
     printf("Number of ports of the server is %" PRIu8 "\n", nb_ports);

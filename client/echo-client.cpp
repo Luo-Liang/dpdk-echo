@@ -51,6 +51,8 @@
 #include <rte_ethdev.h>
 #include <vector>
 #include <unordered_map>
+#include <iostream>
+#include <fstream>
 #include "../shared/cluster-cfg.h"
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
@@ -59,15 +61,15 @@
 #define MBUF_CACHE_SIZE 250
 #define RX_RING_SIZE 512
 #define TX_RING_SIZE 512
-#define BATCH_SIZE 1
+#define BATCH_SIZE 36
 #define rte_eth_dev_count_avail rte_eth_dev_count
-enum benchmark_phase
-{
-    BENCHMARK_WARMUP,
-    BENCHMARK_RUNNING,
-    BENCHMARK_COOLDOWN,
-    BENCHMARK_DONE,
-} __attribute__((aligned(64)));
+// enum benchmark_phase
+// {
+//     BENCHMARK_WARMUP,
+//     BENCHMARK_RUNNING,
+//     BENCHMARK_COOLDOWN,
+//     BENCHMARK_DONE,
+// } __attribute__((aligned(64)));
 
 struct lcore_args
 {
@@ -75,9 +77,9 @@ struct lcore_args
     endhost dst;
     enum pkt_type type;
     uint8_t tid;
-    volatile enum benchmark_phase *phase;
+    //volatile enum benchmark_phase *phase;
     struct rte_mempool *pool;
-    std::vector<uint32_t> samples;
+    std::vector<uint64_t> samples;
     size_t counter;
     std::vector<uint32_t> associatedPorts;
     //std::vector<uint32_t> coreIdx2LCoreId;
@@ -221,13 +223,11 @@ ports_init(struct lcore_args *largs,
 static int
 lcore_execute(void *arg)
 {
-    int n;
     struct lcore_args *myarg;
     uint8_t queue;
     struct rte_mempool *pool;
-    volatile enum benchmark_phase *phase;
+    //volatile enum benchmark_phase *phase;
     struct rte_mbuf *bufs[BATCH_SIZE];
-    uint16_t bsz, i, port, nb_ports;
     char *pkt_ptr;
     struct timeval start, end;
     uint64_t elapsed;
@@ -235,85 +235,62 @@ lcore_execute(void *arg)
     myarg = (struct lcore_args *)arg;
     queue = myarg->tid;
     pool = myarg->pool;
-    phase = myarg->phase;
-    bsz = BATCH_SIZE;
-    nb_ports = rte_eth_dev_count_avail();
-    int pktCntr = 0;
-    while(myarg->samples.size() < myarg->counter)
+    //phase = myarg->phase;
+    //bsz = BATCH_SIZE;
+    while (myarg->samples.size() < myarg->counter)
     {
-        gettimeofday(&start, NULL);
-
-        for (port = 0; port < nb_ports; port++)
+        for (auto port : myarg->associatedPorts)
         {
             /* Receive and process responses */
 
             //send a single packet and wait for response.
-            
-            do
-            {
-                if ((n = rte_eth_rx_burst(port, queue, bufs, bsz)) < 0)
-                {
-                    rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
-                }
-
-                for (i = 0; i < n; i++)
-                {
-                    if ((*phase == BENCHMARK_RUNNING) &&
-                        pkt_client_process(bufs[i], myarg->type))
-                    {
-                        __sync_fetch_and_add(&tot_proc_pkts, 1);
-                    }
-                }
-
-                for (i = 0; i < n; i++)
-                {
-                    rte_pktmbuf_free(bufs[i]);
-                }
-
-            } while (n == bsz); // More packets in the RX queue
 
             /* Prepare and send requests */
-            if (0 != rte_pktmbuf_alloc_bulk(pool, bufs, bsz))
+            if ((bufs[0] = rte_pktmbuf_alloc(pool)) == NULL)
             {
                 rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
             }
-            // for (i = 0; i < bsz; i++)
-            // {
-            //     if ((bufs[i] = rte_pktmbuf_alloc(pool)) == NULL)
-            //     {
-            //         break;
-            //     }
-            // }
-            n = bsz;
-            for (i = 0; i < n; i++)
+
+            pkt_ptr = rte_pktmbuf_append(bufs[0], pkt_size(myarg->type));
+            pkt_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
+                      myarg->type, queue);
+            pkt_set_attribute(bufs[0]);
+
+            //pkt_dump(bufs[i]);
+            gettimeofday(&start, NULL);
+            if (0 > rte_eth_tx_burst(port, queue, bufs, 1))
             {
-                pkt_ptr = rte_pktmbuf_append(bufs[i], pkt_size(myarg->type));
-                pkt_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
-                          myarg->type, queue);
-                pkt_set_attribute(bufs[i]);
-                //pkt_dump(bufs[i]);
+                rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
             }
-            i = rte_eth_tx_burst(port, queue, bufs, n);
-            pktCntr += i;
             /* free non-sent buffers */
-            for (; i < n; i++)
+            bool found = false;
+            while (found == false)
             {
-                rte_pktmbuf_free(bufs[i]);
+                int recv = 0;
+                if ((recv = rte_eth_rx_burst(port, queue, bufs, BATCH_SIZE)) < 0)
+                {
+                    rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
+                }
+                gettimeofday(&end, NULL);
+                for (int i = 0; i < recv; i++)
+                {
+                    if (pkt_client_process(bufs[i], myarg->type))
+                    {
+                        found = true;
+                        //__sync_fetch_and_add(&tot_proc_pkts, 1);
+                        elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
+                                  (end.tv_usec - start.tv_usec);
+                        myarg->samples.push_back(elapsed);
+                    }
+                }
+
+                for (int i = 0; i < recv; i++)
+                {
+                    rte_pktmbuf_free(bufs[i]);
+                }
             }
         }
-
-        gettimeofday(&end, NULL);
-        elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
-                  (end.tv_usec - start.tv_usec);
-
-        if (*phase == BENCHMARK_RUNNING)
-        {
-            tot_elapsed += elapsed;
-        }
-
     }
-    printf("worker %" PRIu8 " done. counter = %d\n", myarg->tid, pktCntr);
-
     return 0;
 }
 
@@ -324,7 +301,6 @@ int main(int argc, char **argv)
     unsigned lcore_id;
     uint8_t threadnum;
     struct lcore_args *largs;
-    volatile enum benchmark_phase phase;
     struct settings mysettings = {
         .warmup_time = 5,
         .run_time = 10,
@@ -352,7 +328,9 @@ int main(int argc, char **argv)
     ap.addArgument("--dstIp", 1, false);
     ap.addArgument("--dstMac", 1, false);
     ap.addArgument("--samples", 1, false);
-    ap.addFinalArgument("output", 1, false);
+    ap.addArgument("--sid", 1, true);
+    ap.addArgument("--did", 1, true);
+    ap.addFinalArgument("output", 1, true);
 
     ap.parse(argc, (const char **)argv);
 
@@ -385,7 +363,6 @@ int main(int argc, char **argv)
             }
             largs[idx].CoreID = CORE;
             largs[idx].tid = idx;
-            largs[idx].phase = &phase;
             largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
             largs[idx].dst = destination;
             largs[idx].counter = samples;
@@ -403,12 +380,12 @@ int main(int argc, char **argv)
 
     /* Start applications */
     printf("Starting Workers\n");
-    phase = BENCHMARK_WARMUP;
-    if (mysettings.warmup_time)
-    {
-        sleep(mysettings.warmup_time);
-        printf("Warmup done\n");
-    }
+    // phase = BENCHMARK_WARMUP;
+    // if (mysettings.warmup_time)
+    // {
+    //     sleep(mysettings.warmup_time);
+    //     printf("Warmup done\n");
+    // }
 
     /* call lcore_execute() on every slave lcore */
     RTE_LCORE_FOREACH_SLAVE(lcore_id)
@@ -417,25 +394,43 @@ int main(int argc, char **argv)
                               lcore_id);
     }
 
-    phase = BENCHMARK_RUNNING;
-    sleep(mysettings.run_time);
+    //sleep(mysettings.run_time);
 
-    if (mysettings.cooldown_time)
-    {
-        printf("Starting cooldown\n");
-        phase = BENCHMARK_COOLDOWN;
-        sleep(mysettings.cooldown_time);
-    }
+    // if (mysettings.cooldown_time)
+    // {
+    //     printf("Starting cooldown\n");
+    //     phase = BENCHMARK_COOLDOWN;
+    //     sleep(mysettings.cooldown_time);
+    // }
 
-    phase = BENCHMARK_DONE;
-    printf("Benchmark done\n");
+    // printf("Benchmark done\n");
 
     rte_eal_mp_wait_lcore();
-    /* print status */
-    printf("Latency is %lf us\n", (tot_elapsed + 0.0) / (tot_proc_pkts + 0.0));
-    printf("Throughput is %lf reqs/s\n", (tot_proc_pkts + 0.0) /
-                                             (mysettings.run_time + 0.0));
 
+    /* print status */
+    if (ap.count("output") > 0)
+    {
+        if(ap.count("sid") == 0 || ap.count("did") == 0)
+        {
+            rte_exit(EXIT_FAILURE, "if output is specified, sid and did must also be specified");
+        }
+        auto file = ap.retrieve<std::string>("output");
+        std::vector<uint64_t> consolidated;
+        std::string appHeader("BENCHMARK:DPDK_ECHO;SELF_TEST_OPTION:FALSE;DIMENSION:${totalClients};VALUE:AVG;PREPROCESS:0");
+        std::ofstream ofile;
+        ofile.open(file);
+        for (int i = 0; i < threadnum; i++)
+        {
+            for (auto t : largs[i].samples)
+            {
+                //from, to, ping result
+                ofile << ap.retrieve<std::string>("sid") << ","
+                      << ap.retrieve<std::string>("did") << ","
+                      << t;
+            }
+        }
+        ofile.close();
+    }
     free(largs);
     return 0;
 }

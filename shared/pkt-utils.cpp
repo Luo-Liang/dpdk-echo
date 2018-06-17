@@ -133,7 +133,8 @@ pkt_swap_address(struct common_hdr *comhdr)
     comhdr->udp.src_port = tmp_udp;
 
     // Clear old checksumcomhdr->ip);
-    comhdr->udp.dgram_cksum = 0;
+    comhdr->ip.hdr_checksum = 0;
+    comhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&comhdr->ip, &comhdr->udp);
 }
 
 void pkt_build(char *pkt_ptr,
@@ -242,7 +243,7 @@ int pkt_server_process(struct rte_mbuf *buf,
         if (!memcmp(mypkt->payload, contents.c_str(), ECHO_PAYLOAD_LEN))
         {
             pkt_swap_address(&mypkt->pro_hdr);
-            pkt_server_data_build(mypkt->payload, type);
+            //pkt_server_data_build(mypkt->payload, type);
 
             ret = 0;
         }
