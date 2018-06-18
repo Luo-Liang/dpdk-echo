@@ -76,6 +76,7 @@ struct lcore_args
     std::vector<endhost> srcs;
     endhost dst;
     enum pkt_type type;
+    //the index of this arg in largs*, where a master is also included at 0.
     uint8_t tid;
     //volatile enum benchmark_phase *phase;
     struct rte_mempool *pool;
@@ -102,10 +103,13 @@ pkt_dump(struct rte_mbuf *buf)
     rte_pktmbuf_dump(stdout, buf, rte_pktmbuf_pkt_len(buf));
 }*/
 
+
+//largs is the FIRST WORKER, aka real largs + 1
 static inline int
 ports_init(struct lcore_args *largs,
-           uint8_t threadnum,
-           std::vector<std::string> suppliedIPs)
+           uint8_t workerCnt,
+           std::vector<std::string> suppliedIPs,
+           std::vector<std::string> blockedSrcMac)
 {
     rte_eth_conf port_conf_default;
     memset(&port_conf_default, 0, sizeof(rte_eth_conf));
@@ -123,22 +127,33 @@ ports_init(struct lcore_args *largs,
     uint8_t q, rx_rings, tx_rings, nb_ports;
     int retval, i;
     char bufpool_name[32];
-    uint16_t port;
 
     nb_ports = rte_eth_dev_count_avail();
     printf("Number of ports of the server is %" PRIu8 "\n", nb_ports);
     assert(nb_ports <= suppliedIPs.size());
-
+    std::vector<int> portids;
     //now assign port to cores.
     for (int i = 0; i < nb_ports; i++)
     {
-        auto targetThread = i % threadnum;
+        ether_addr tmp;
+        rte_eth_macaddr_get(i, &tmp);
+        char macStr[18];
+        snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+                 tmp.addr_bytes, tmp.addr_bytes + 1, tmp.addr_bytes + 2, tmp.addr_bytes + 3, tmp.addr_bytes + 4, tmp.addr_bytes + 5);
+        std::string macString(macStr);
+        if (std::find(blockedSrcMac.begin(), blockedSrcMac.end(), macString) != blockedSrcMac.end())
+        {
+            // this interface is blocked.
+            continue;
+        }
+        //skip largs[0], which is for master.
+        auto targetThread = i % workerCnt;
+        portids.push_back(i);
         largs[targetThread].associatedPorts.push_back(i);
     }
 
-    for (i = 0; i < threadnum; i++)
+    for (i = 0; i < workerCnt; i++)
     {
-        largs[i].tid = rte_lcore_id();
         sprintf(bufpool_name, "bufpool_%d", i);
         largs[i].pool = rte_pktmbuf_pool_create(bufpool_name,
                                                 NUM_MBUFS, MBUF_CACHE_SIZE, 0,
@@ -148,20 +163,22 @@ ports_init(struct lcore_args *largs,
             rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed\n");
         }
         //largs[i].src_id = (int *)malloc(sizeof(int) * nb_ports);
-        largs[i].srcs.resize(nb_ports);
+        largs[i].srcs.resize(largs[i].associatedPorts.size());
         //largs[i].srcMacs.resize(nb_ports);
-        for (port = 0; port < nb_ports; port++)
+        for (size_t pidx = 0; pidx < largs[i].associatedPorts.size(); pidx++)
         {
-            rte_eth_macaddr_get(port, (ether_addr *)largs[i].srcs.at(port).mac);
+            auto port  = largs[i].associatedPorts.at(pidx);
+            rte_eth_macaddr_get(port, (ether_addr *)largs[i].srcs.at(pidx).mac);
             //since nb_ports < suppliedIp.size, assign port-th to suppliedIps
-            IPFromString(suppliedIPs.at(port), largs[i].srcs.at(port).ip);
+            IPFromString(suppliedIPs.at(port), largs[i].srcs.at(pidx).ip);
             //largs[i].srcMacs.push_back( = get_endhost_id(myaddr);
         }
     }
 
-    for (port = 0; port < nb_ports; port++)
+    for (int port : portids)
     {
-        rx_rings = tx_rings = threadnum;
+        //one queue is sufficient for echo?
+        rx_rings = tx_rings = 1;
         retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
         if (retval != 0)
         {
@@ -233,7 +250,8 @@ lcore_execute(void *arg)
     uint64_t elapsed;
 
     myarg = (struct lcore_args *)arg;
-    queue = myarg->tid;
+    queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
+    //one port probably needs to be touched by multiple procs in real app.
     pool = myarg->pool;
     //phase = myarg->phase;
     //bsz = BATCH_SIZE;
@@ -330,6 +348,7 @@ int main(int argc, char **argv)
     ap.addArgument("--samples", 1, false);
     ap.addArgument("--sid", 1, true);
     ap.addArgument("--did", 1, true);
+    ap.addArgument("--blocked", true);
     ap.addFinalArgument("output", 1, true);
 
     ap.parse(argc, (const char **)argv);
@@ -351,7 +370,13 @@ int main(int argc, char **argv)
     for (int CORE = 0;; i++)
     {
         if (CORE == rte_get_master_lcore())
+        {
+            if(CORE != 0)
+            {
+                rte_exit(EXIT_FAILURE, "master core must be 0. now is %d", CORE);
+            }
             continue;
+        }
         if (rte_lcore_is_enabled(CORE))
         {
             //get its index.
@@ -367,12 +392,17 @@ int main(int argc, char **argv)
             largs[idx].dst = destination;
             largs[idx].counter = samples;
         }
-        if (activatedCoreCntr == threadnum)
+        if (activatedCoreCntr == threadnum - 1)
         {
             break;
         }
     }
-    ret = ports_init(largs, threadnum, srcips);
+    std::vector<std::string> blockedIFs;
+    if(ap.count("blocked") > 0)
+    {
+        blockedIFs = ap.retrieve<std::vector<std::string>>("blocked");
+    }
+    ret = ports_init(largs + 1, threadnum - 1, srcips, blockedIFs);
     if (ret != 0)
     {
         printf("port init failed. %s.\n", rte_strerror(rte_errno));
@@ -410,7 +440,7 @@ int main(int argc, char **argv)
     /* print status */
     if (ap.count("output") > 0)
     {
-        if(ap.count("sid") == 0 || ap.count("did") == 0)
+        if (ap.count("sid") == 0 || ap.count("did") == 0)
         {
             rte_exit(EXIT_FAILURE, "if output is specified, sid and did must also be specified");
         }

@@ -95,11 +95,17 @@ static inline int
 port_init(struct lcore_args *largs,
           uint8_t threadnum)
 {
-    rte_eth_conf port_conf_default;
+   rte_eth_conf port_conf_default;
+    memset(&port_conf_default, 0, sizeof(rte_eth_conf));
     port_conf_default.rxmode.mq_mode = ETH_MQ_RX_RSS;
+    //port_conf_default.rxmode.max_rx_pkt_len = ETHER_MAX_LEN;
+    //port_conf_default.rxmode.split_hdr_size = 0;
+    //port_conf_default.rxmode.ignore_offload_bitfield = 1;
+    //port_conf_default.rxmode.offloads = (DEV_RX_OFFLOAD_CRC_STRIP | DEV_RX_OFFLOAD_CHECKSUM);
+
+    //port_conf_default.rx_adv_conf.rss_conf.rss_key = NULL;
+    //port_conf_default.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_IP;
     port_conf_default.txmode.mq_mode = ETH_MQ_TX_NONE;
-    port_conf_default.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_NONFRAG_IPV4_UDP;
-    port_conf_default.fdir_conf.mode = RTE_FDIR_MODE_NONE;
     struct rte_eth_conf port_conf = port_conf_default;
     uint8_t q, rx_rings, tx_rings;
     int retval, i;

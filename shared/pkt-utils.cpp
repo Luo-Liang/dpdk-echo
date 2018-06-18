@@ -240,11 +240,10 @@ int pkt_server_process(struct rte_mbuf *buf,
         struct echo_hdr *mypkt;
 
         mypkt = rte_pktmbuf_mtod(buf, struct echo_hdr *);
-        if (!memcmp(mypkt->payload, contents.c_str(), ECHO_PAYLOAD_LEN))
+        if (mypkt->pro_hdr.ip.next_proto_id == 17 && !memcmp(mypkt->payload, contents.c_str(), ECHO_PAYLOAD_LEN))
         {
             pkt_swap_address(&mypkt->pro_hdr);
             //pkt_server_data_build(mypkt->payload, type);
-
             ret = 0;
         }
     }
