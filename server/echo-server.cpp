@@ -244,6 +244,7 @@ lcore_execute(__attribute__((unused)) void *arg)
                 else
                 {
                     response[j++] = bufs[i];
+                    pkt_set_attribute(response[i]);
 
 #ifdef PERF_DEBUG
                     recv_cnt++;
@@ -261,6 +262,8 @@ lcore_execute(__attribute__((unused)) void *arg)
                 n = rte_eth_tx_burst(port, queue, response + i, j - i);
                 i += n;
             }
+
+            //
         }
 
 #ifdef PERF_DEBUG

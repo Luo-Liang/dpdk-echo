@@ -117,11 +117,9 @@ ports_init(struct lcore_args *largs,
     //port_conf_default.rxmode.max_rx_pkt_len = ETHER_MAX_LEN;
     //port_conf_default.rxmode.split_hdr_size = 0;
     //port_conf_default.rxmode.ignore_offload_bitfield = 1;
-    //port_conf_default.rxmode.offloads = (DEV_RX_OFFLOAD_CRC_STRIP | DEV_RX_OFFLOAD_CHECKSUM);
 
     //port_conf_default.rx_adv_conf.rss_conf.rss_key = NULL;
     //port_conf_default.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_IP;
-
     port_conf_default.txmode.mq_mode = ETH_MQ_TX_NONE;
     struct rte_eth_conf port_conf = port_conf_default;
     uint8_t q, rx_rings, tx_rings, nb_ports;
