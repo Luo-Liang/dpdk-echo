@@ -48,139 +48,9 @@
 #include <rte_debug.h>
 #include <rte_ethdev.h>
 
-#include "../shared/cluster-cfg.h"
+#include "../shared/dpdk-helpers.h"
 #include "../shared/pkt-utils.h"
-
-#define NUM_MBUFS 8191
-#define MBUF_CACHE_SIZE 250
-#define RX_RING_SIZE 512
-#define TX_RING_SIZE 512
-#define BATCH_SIZE 32
-//#define PERF_DEBUG
-#define rte_eth_dev_count_avail rte_eth_dev_count
-struct lcore_args
-{
-    int *src_id, des_id;
-    enum pkt_type type;
-    uint8_t tid;
-    //volatile enum benchmark_phase *phase;
-    struct rte_mempool *pool;
-} __attribute__((packed));
-
-struct settings
-{
-    uint32_t warmup_time;
-    uint32_t run_time;
-    uint32_t cooldown_time;
-} __attribute__((packed));
-
-/*static const struct rte_eth_conf port_conf_default = {
-    .rxmode = { 
-        .mq_mode = ETH_MQ_RX_RSS,
-    },
-    .txmode = {
-        .mq_mode = ETH_MQ_TX_NONE,
-    },
-    .rx_adv_conf = {
-        .rss_conf = {
-            .rss_hf = ETH_RSS_NONFRAG_IPV4_UDP,
-        },
-    },
-    .fdir_conf = {
-        .mode = RTE_FDIR_MODE_NONE,
-    },
-};*/
-
-static inline int
-port_init(struct lcore_args *largs,
-          uint8_t threadnum)
-{
-   rte_eth_conf port_conf_default;
-    memset(&port_conf_default, 0, sizeof(rte_eth_conf));
-    port_conf_default.rxmode.mq_mode = ETH_MQ_RX_RSS;
-    //port_conf_default.rxmode.max_rx_pkt_len = ETHER_MAX_LEN;
-    //port_conf_default.rxmode.split_hdr_size = 0;
-    //port_conf_default.rxmode.ignore_offload_bitfield = 1;
-    //port_conf_default.rxmode.offloads = (DEV_RX_OFFLOAD_CRC_STRIP | DEV_RX_OFFLOAD_CHECKSUM);
-
-    //port_conf_default.rx_adv_conf.rss_conf.rss_key = NULL;
-    //port_conf_default.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_IP;
-    port_conf_default.txmode.mq_mode = ETH_MQ_TX_NONE;
-    struct rte_eth_conf port_conf = port_conf_default;
-    uint8_t q, rx_rings, tx_rings;
-    int retval, i;
-    char bufpool_name[32];
-    struct ether_addr myaddr;
-    uint16_t port;
-
-    int nb_ports = rte_eth_dev_count_avail();
-    printf("Number of ports of the server is %" PRIu8 "\n", nb_ports);
-
-    for (i = 0; i < threadnum; i++)
-    {
-        largs[i].tid = i;
-        sprintf(bufpool_name, "bufpool_%d", i);
-        largs[i].pool = rte_pktmbuf_pool_create(bufpool_name,
-                                                NUM_MBUFS * threadnum, MBUF_CACHE_SIZE, 0,
-                                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-        if (largs[i].pool == NULL)
-        {
-            rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed %d\n", rte_errno);
-        }
-        largs[i].src_id = (int *)malloc(sizeof(int) * nb_ports);
-        for (port = 0; port < nb_ports; port++)
-        {
-            rte_eth_macaddr_get(port, &myaddr);
-            largs[i].src_id[port] = get_endhost_id(myaddr);
-        }
-    }
-
-    for (port = 0; port < nb_ports; port++)
-    {
-        rx_rings = tx_rings = threadnum;
-
-        /* Configure the Ethernet device of a given port */
-        retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
-        if (retval != 0)
-        {
-            return retval;
-        }
-
-        /* Allocate and set up RX queues for a given Ethernet port */
-        for (q = 0; q < rx_rings; q++)
-        {
-            retval = rte_eth_rx_queue_setup(port, q, RX_RING_SIZE,
-                                            rte_eth_dev_socket_id(port), NULL, largs[q].pool);
-            if (retval < 0)
-            {
-                return retval;
-            }
-        }
-
-        /* Allocate and set up TX queues for a given Ethernet port */
-        for (q = 0; q < tx_rings; q++)
-        {
-            retval = rte_eth_tx_queue_setup(port, q, TX_RING_SIZE,
-                                            rte_eth_dev_socket_id(port), NULL);
-            if (retval < 0)
-            {
-                return retval;
-            }
-        }
-
-        /* Start the Ethernet port */
-        retval = rte_eth_dev_start(port);
-        if (retval < 0)
-        {
-            return retval;
-        }
-
-        /* Enable RX in promiscuous mode for the Ethernet device */
-        rte_eth_promiscuous_enable(port);
-    }
-
-    return 0;
-}
+#include "../shared/argparse.h"
 
 static int
 lcore_execute(__attribute__((unused)) void *arg)
@@ -200,7 +70,7 @@ lcore_execute(__attribute__((unused)) void *arg)
 #endif
 
     myarg = (struct lcore_args *)arg;
-    queue = myarg->tid;
+    queue = 0; //myarg->tid;
     bsz = BATCH_SIZE;
     nb_ports = rte_eth_dev_count_avail();
 
@@ -212,7 +82,7 @@ lcore_execute(__attribute__((unused)) void *arg)
         gettimeofday(&start, NULL);
 #endif
 
-        for (port = 0; port < nb_ports; port++)
+        for (int port : myarg->associatedPorts)
         {
             /* Receive and process requests */
             if ((n = rte_eth_rx_burst(port, queue, bufs, bsz)) < 0)
@@ -310,20 +180,49 @@ int main(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "Error: invalid arguments\n");
     }
     InitializePayloadConstants();
-    /* Initialize NIC ports */
-    threadnum = rte_lcore_count() - 1;
-    largs = (lcore_args*)calloc(threadnum, sizeof(*largs));
-    for (i = 0; i < threadnum; i++)
+
+    ArgumentParser ap;
+    ap.addArgument("--ips", '+', false);
+    ap.addArgument("--blocked", true);
+
+    std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
+    std::vector<std::string> macs;
+    if (ap.count("blocked") > 0)
     {
-        largs[i].tid = i;
-        largs[i].type = (pkt_type)atoi(argv[1]);
+        macs = ap.retrieve<std::vector<std::string>>("blocked");
     }
-    port_init(largs, threadnum);
+    /* Initialize NIC ports */
+    threadnum = rte_lcore_count();
+    if(threadnum < 2) 
+    {
+        rte_exit(EXIT_FAILURE, "use -c -l?! give more cores.");
+    }
+
+    if (0 != rte_get_master_lcore())
+    {
+        rte_exit(EXIT_FAILURE, "master core must be 0. now is %d", rte_get_master_lcore());
+    }
+
+    auto lCore2Idx = LCoreToIndex();
+    for (int idx = 0; idx < threadnum; idx++)
+    {
+        int CORE = lCore2Idx.at(idx);
+        largs[idx].CoreID = CORE;
+        largs[idx].tid = idx;
+        largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
+        largs[idx].counter = INT_MAX;
+        largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
+    }
+
+    if (0 != ports_init(largs, threadnum , ips, macs))
+    {
+        rte_exit(EXIT_FAILURE, "ports_init failed with %s", rte_strerror(rte_errno));
+    }
 
     /* call lcore_execute() on every slave lcore */
     RTE_LCORE_FOREACH_SLAVE(lcore_id)
     {
-        rte_eal_remote_launch(lcore_execute, (void *)(largs + lcore_id - 1),
+        rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]),
                               lcore_id);
     }
 

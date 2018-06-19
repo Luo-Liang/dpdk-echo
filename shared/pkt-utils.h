@@ -10,9 +10,8 @@
 #include <string>
 #include <cassert>
 #include <cstdio>
-enum pkt_type {
-    ECHO,
-};
+#include "dpdk-helpers.h"
+
 
 struct udphdr {
   u_short uh_sport;/* source port */

@@ -41,7 +41,7 @@ current_dir = $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
 
 #current_dir = $(shell pwd)/../
 # all source are stored in SRCS-y
-SRCS-y := $(current_dir)/echo-client.cpp $(current_dir)/../shared/cluster-cfg.cpp $(current_dir)/../shared/pkt-utils.cpp
+SRCS-y := $(current_dir)/echo-client.cpp $(current_dir)/../shared/dpdk-helpers.cpp $(current_dir)/../shared/pkt-utils.cpp
 
 # Default target, can be overriden by command line or environment
 RTE_TARGET ?= x86_64-native-linuxapp-gcc

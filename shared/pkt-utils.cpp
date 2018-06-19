@@ -7,8 +7,7 @@
 #include <rte_ip.h>
 #include <rte_udp.h>
 #include <rte_memcpy.h>
-
-#include "cluster-cfg.h"
+#include "dpdk-helpers.h"
 #include "pkt-utils.h"
 #include <string>
 #include <stdexcept>

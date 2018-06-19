@@ -53,16 +53,10 @@
 #include <unordered_map>
 #include <iostream>
 #include <fstream>
-#include "../shared/cluster-cfg.h"
+#include "../shared/dpdk-helpers.h"
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
 
-#define NUM_MBUFS 8191
-#define MBUF_CACHE_SIZE 250
-#define RX_RING_SIZE 512
-#define TX_RING_SIZE 512
-#define BATCH_SIZE 36
-#define rte_eth_dev_count_avail rte_eth_dev_count
 // enum benchmark_phase
 // {
 //     BENCHMARK_WARMUP,
@@ -70,29 +64,6 @@
 //     BENCHMARK_COOLDOWN,
 //     BENCHMARK_DONE,
 // } __attribute__((aligned(64)));
-
-struct lcore_args
-{
-    std::vector<endhost> srcs;
-    endhost dst;
-    enum pkt_type type;
-    //the index of this arg in largs*, where a master is also included at 0.
-    uint8_t tid;
-    //volatile enum benchmark_phase *phase;
-    struct rte_mempool *pool;
-    std::vector<uint64_t> samples;
-    size_t counter;
-    std::vector<uint32_t> associatedPorts;
-    //std::vector<uint32_t> coreIdx2LCoreId;
-    uint32_t CoreID;
-}; //__attribute__((packed));
-
-struct settings
-{
-    uint32_t warmup_time;
-    uint32_t run_time;
-    uint32_t cooldown_time;
-} __attribute__((packed));
 
 uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
 std::unordered_map<uint32_t, uint32_t> lCore2Idx;
@@ -102,138 +73,6 @@ pkt_dump(struct rte_mbuf *buf)
     printf("Packet info:\n");
     rte_pktmbuf_dump(stdout, buf, rte_pktmbuf_pkt_len(buf));
 }*/
-
-
-//largs is the FIRST WORKER, aka real largs + 1
-static inline int
-ports_init(struct lcore_args *largs,
-           uint8_t workerCnt,
-           std::vector<std::string> suppliedIPs,
-           std::vector<std::string> blockedSrcMac)
-{
-    rte_eth_conf port_conf_default;
-    memset(&port_conf_default, 0, sizeof(rte_eth_conf));
-    port_conf_default.rxmode.mq_mode = ETH_MQ_RX_RSS;
-    //port_conf_default.rxmode.max_rx_pkt_len = ETHER_MAX_LEN;
-    //port_conf_default.rxmode.split_hdr_size = 0;
-    //port_conf_default.rxmode.ignore_offload_bitfield = 1;
-
-    //port_conf_default.rx_adv_conf.rss_conf.rss_key = NULL;
-    //port_conf_default.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_IP;
-    port_conf_default.txmode.mq_mode = ETH_MQ_TX_NONE;
-    struct rte_eth_conf port_conf = port_conf_default;
-    uint8_t q, rx_rings, tx_rings, nb_ports;
-    int retval, i;
-    char bufpool_name[32];
-
-    nb_ports = rte_eth_dev_count_avail();
-    printf("Number of ports of the server is %" PRIu8 "\n", nb_ports);
-    assert(nb_ports <= suppliedIPs.size());
-    std::vector<int> portids;
-    //now assign port to cores.
-    for (int i = 0; i < nb_ports; i++)
-    {
-        ether_addr tmp;
-        rte_eth_macaddr_get(i, &tmp);
-        char macStr[18];
-        snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
-                 tmp.addr_bytes, tmp.addr_bytes + 1, tmp.addr_bytes + 2, tmp.addr_bytes + 3, tmp.addr_bytes + 4, tmp.addr_bytes + 5);
-        std::string macString(macStr);
-        if (std::find(blockedSrcMac.begin(), blockedSrcMac.end(), macString) != blockedSrcMac.end())
-        {
-            // this interface is blocked.
-            continue;
-        }
-        //skip largs[0], which is for master.
-        auto targetThread = i % workerCnt;
-        portids.push_back(i);
-        largs[targetThread].associatedPorts.push_back(i);
-    }
-
-    for (i = 0; i < workerCnt; i++)
-    {
-        sprintf(bufpool_name, "bufpool_%d", i);
-        largs[i].pool = rte_pktmbuf_pool_create(bufpool_name,
-                                                NUM_MBUFS, MBUF_CACHE_SIZE, 0,
-                                                RTE_MBUF_DEFAULT_BUF_SIZE, largs[i].CoreID);
-        if (largs[i].pool == NULL)
-        {
-            rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed\n");
-        }
-        //largs[i].src_id = (int *)malloc(sizeof(int) * nb_ports);
-        largs[i].srcs.resize(largs[i].associatedPorts.size());
-        //largs[i].srcMacs.resize(nb_ports);
-        for (size_t pidx = 0; pidx < largs[i].associatedPorts.size(); pidx++)
-        {
-            auto port  = largs[i].associatedPorts.at(pidx);
-            rte_eth_macaddr_get(port, (ether_addr *)largs[i].srcs.at(pidx).mac);
-            //since nb_ports < suppliedIp.size, assign port-th to suppliedIps
-            IPFromString(suppliedIPs.at(port), largs[i].srcs.at(pidx).ip);
-            //largs[i].srcMacs.push_back( = get_endhost_id(myaddr);
-        }
-    }
-
-    for (int port : portids)
-    {
-        //one queue is sufficient for echo?
-        rx_rings = tx_rings = 1;
-        retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
-        if (retval != 0)
-        {
-            printf("port init failed. %s. retval = %d\n", rte_strerror(rte_errno), retval);
-            return retval;
-        }
-
-        rte_eth_rxconf rxqConf;
-
-        //rte_eth_conf* pConf;
-        //rte_eth_dev* pDev = &rte_eth_devices[port];
-        rte_eth_dev_info devInfo;
-        rte_eth_dev_info_get(port, &devInfo);
-        rxqConf = devInfo.default_rxconf;
-        //pConf = &pDev->data->dev_conf;
-        //rxqConf.offloads = pConf->rxmode.offloads;
-        /* Configure the Ethernet device of a given port */
-
-        /* Allocate and set up RX queues for a given Ethernet port */
-        for (q = 0; q < rx_rings; q++)
-        {
-            retval = rte_eth_rx_queue_setup(port, q, RX_RING_SIZE,
-                                            rte_eth_dev_socket_id(port), &rxqConf, largs[q].pool);
-            if (retval < 0)
-            {
-                return retval;
-            }
-        }
-
-        rte_eth_txconf txqConf;
-        txqConf = devInfo.default_txconf;
-        //txqConf.txq_flags = ETH_TXQ_FLAGS_IGNORE;
-        //txqConf.offloads = port_conf.txmode.offloads;
-        /* Allocate and set up TX queues for a given Ethernet port */
-        for (q = 0; q < tx_rings; q++)
-        {
-            retval = rte_eth_tx_queue_setup(port, q, TX_RING_SIZE,
-                                            rte_eth_dev_socket_id(port), &txqConf);
-            if (retval < 0)
-            {
-                return retval;
-            }
-        }
-
-        /* Start the Ethernet port */
-        retval = rte_eth_dev_start(port);
-        if (retval < 0)
-        {
-            return retval;
-        }
-
-        /* Enable RX in promiscuous mode for the Ethernet device */
-        rte_eth_promiscuous_enable(port);
-    }
-
-    return 0;
-}
 
 static int
 lcore_execute(void *arg)
@@ -312,19 +151,12 @@ lcore_execute(void *arg)
 
 int main(int argc, char **argv)
 {
-
-    int ret, i;
     unsigned lcore_id;
     uint8_t threadnum;
     struct lcore_args *largs;
-    struct settings mysettings = {
-        .warmup_time = 5,
-        .run_time = 10,
-        .cooldown_time = 5,
-    };
 
     /* Initialize the Environment Abstraction Layer (EAL) */
-    ret = rte_eal_init(argc, argv);
+    int ret = rte_eal_init(argc, argv);
     if (ret < 0)
     {
         rte_exit(EXIT_FAILURE, "Error: cannot init EAL\n");
@@ -361,46 +193,29 @@ int main(int argc, char **argv)
     InitializePayloadConstants();
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
+    if(threadnum < 2) 
+    {
+        rte_exit(EXIT_FAILURE, "use -c -l?! give more cores.");
+    }
     largs = (lcore_args *)calloc(threadnum, sizeof(*largs));
 
-    size_t activatedCoreCntr = 0;
-
-    for (int CORE = 0;; i++)
+    auto lCore2Idx = LCoreToIndex();
+    for (int idx = 0; idx < threadnum; idx++)
     {
-        if (CORE == rte_get_master_lcore())
-        {
-            if(CORE != 0)
-            {
-                rte_exit(EXIT_FAILURE, "master core must be 0. now is %d", CORE);
-            }
-            continue;
-        }
-        if (rte_lcore_is_enabled(CORE))
-        {
-            //get its index.
-            uint32_t idx = rte_lcore_index(CORE);
-            lCore2Idx[CORE] = idx;
-            if (idx >= threadnum)
-            {
-                rte_exit(EXIT_FAILURE, "%d must be less than threadnum.", idx);
-            }
-            largs[idx].CoreID = CORE;
-            largs[idx].tid = idx;
-            largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
-            largs[idx].dst = destination;
-            largs[idx].counter = samples;
-        }
-        if (activatedCoreCntr == threadnum - 1)
-        {
-            break;
-        }
+        int CORE = lCore2Idx.at(idx);
+        largs[idx].CoreID = CORE;
+        largs[idx].tid = idx;
+        largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
+        largs[idx].dst = destination;
+        largs[idx].counter = samples;
+        largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
     }
     std::vector<std::string> blockedIFs;
-    if(ap.count("blocked") > 0)
+    if (ap.count("blocked") > 0)
     {
         blockedIFs = ap.retrieve<std::vector<std::string>>("blocked");
     }
-    ret = ports_init(largs + 1, threadnum - 1, srcips, blockedIFs);
+    ret = ports_init(largs, threadnum, srcips, blockedIFs);
     if (ret != 0)
     {
         printf("port init failed. %s.\n", rte_strerror(rte_errno));
