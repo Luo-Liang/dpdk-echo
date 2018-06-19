@@ -134,6 +134,7 @@ pkt_swap_address(struct common_hdr *comhdr)
 
     // Clear old checksumcomhdr->ip);
     comhdr->ip.hdr_checksum = 0;
+    comhdr->udp.dgram_cksum = 0;
     comhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&comhdr->ip, &comhdr->udp);
 }
 
@@ -167,6 +168,7 @@ void pkt_build(char *pkt_ptr,
     myhdr->udp.dgram_len = htons(pkt_size(type) - ETHER_HEADER_LEN - IP_HEADER_LEN); // -
         //UDP_HEADER_LEN;
     pkt_client_data_build(pkt_ptr, type);
+    myhdr->udp.dgram_cksum = 0;
     myhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&myhdr->ip, &myhdr->udp);// | 0; // uhdr.uh_sum = htons(0xba29);
     //myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
     //printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
