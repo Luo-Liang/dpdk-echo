@@ -176,7 +176,7 @@ int main(int argc, char **argv)
     ArgumentParser ap;
     ap.addArgument("--ips", '+', false);
     ap.addArgument("--blocked", true);
-    ap.parse(argc, argv);
+    ap.parse(argc, (const char**)argv);
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
     std::vector<std::string> macs;
     if (ap.count("blocked") > 0)

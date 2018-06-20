@@ -190,21 +190,21 @@ int main(int argc, char **argv)
     MACFromString(ap.retrieve<std::string>("dstMac"), destination.mac);
 
     size_t samples = atoi(ap.retrieve<std::string>("samples").c_str());
-    if(samples == -1) 
+    if (samples == -1)
     {
         rte_exit(EXIT_FAILURE, "what is %s?", ap.retrieve<std::string>("samples").c_str());
     }
     InitializePayloadConstants();
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
-    if(threadnum < 2) 
+    if (threadnum < 2)
     {
         rte_exit(EXIT_FAILURE, "use -c -l?! give more cores.");
     }
     largs = (lcore_args *)calloc(threadnum, sizeof(*largs));
 
-    std::unordered_map<int,int> lCore2Idx;
-    std::unordered_map<int,int> Idx2LCore;
+    std::unordered_map<int, int> lCore2Idx;
+    std::unordered_map<int, int> Idx2LCore;
     CoreIdxMap(lCore2Idx, Idx2LCore);
     for (int idx = 0; idx < threadnum; idx++)
     {
@@ -264,7 +264,6 @@ int main(int argc, char **argv)
             rte_exit(EXIT_FAILURE, "if output is specified, sid and did must also be specified");
         }
         auto file = ap.retrieve<std::string>("output");
-        std::vector<uint64_t> consolidated;
         std::string appHeader("BENCHMARK:DPDK_ECHO;SELF_TEST_OPTION:FALSE;DIMENSION:${totalClients};VALUE:AVG;PREPROCESS:0");
         std::ofstream ofile;
         ofile.open(file);
@@ -279,6 +278,24 @@ int main(int argc, char **argv)
             }
         }
         ofile.close();
+    }
+    else
+    {
+        //compute min, max latency.
+        uint64_t min = UINT64_MAX, max = 0, avg = 0;
+        size_t cntr = 0;
+        for (int i = 0; i < threadnum; i++)
+        {
+            for (auto t : largs[i].samples)
+            {
+                //from, to, ping result
+                min = std::min(min, t);
+                max = std::max(max, t);
+                avg += t;
+            }
+            cntr += largs[i].samples.size();
+        }
+        printf("MIN = %d, MAX = %d, AVG = %d", min, max, avg / cntr);
     }
     free(largs);
     return 0;
