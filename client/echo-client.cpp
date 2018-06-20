@@ -95,7 +95,7 @@ lcore_execute(void *arg)
     if (myarg->associatedPorts.size() == 0)
     {
         printf("Thread %d has finished executing.\n", myarg->tid);
-        return;
+        return 0;
     }
     while (myarg->samples.size() < myarg->counter)
     {
@@ -303,7 +303,7 @@ int main(int argc, char **argv)
             }
             cntr += largs[i].samples.size();
         }
-        printf("MIN = %d, MAX = %d, AVG = %d", min, max, avg / cntr);
+        printf("MIN = %d, MAX = %d, AVG = %d\n", min, max, avg / cntr);
     }
     free(largs);
     return 0;
