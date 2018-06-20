@@ -274,7 +274,8 @@ int main(int argc, char **argv)
                 //from, to, ping result
                 ofile << ap.retrieve<std::string>("sid") << ","
                       << ap.retrieve<std::string>("did") << ","
-                      << t;
+                      << t 
+                      << std::endl;
             }
         }
         ofile.close();
