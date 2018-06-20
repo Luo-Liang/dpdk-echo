@@ -95,7 +95,7 @@ lcore_execute(void *arg)
     if (myarg->associatedPorts.size() == 0)
     {
         printf("Thread %d has finished executing.\n", myarg->tid);
-        return;
+        return 0;
     }
     while (myarg->samples.size() < myarg->counter)
     {
