@@ -170,21 +170,13 @@ int main(int argc, char **argv)
     argv += ret;
 
     /* Initialize application args */
-    if (argc != 2)
-    {
-        printf("Usage: %s <server type>\n", argv[0]);
-        printf("Server Type:\n");
-        printf("\t0 -> ECHO server\n");
-        //printf("Interface identifier.\n");
-        //printf("Specify a list of interfaces separated by comma.\n");
-        rte_exit(EXIT_FAILURE, "Error: invalid arguments\n");
-    }
+
     InitializePayloadConstants();
 
     ArgumentParser ap;
     ap.addArgument("--ips", '+', false);
     ap.addArgument("--blocked", true);
-
+    ap.parse(argc, argv);
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
     std::vector<std::string> macs;
     if (ap.count("blocked") > 0)
@@ -202,7 +194,7 @@ int main(int argc, char **argv)
     {
         rte_exit(EXIT_FAILURE, "master core must be 0. now is %d", rte_get_master_lcore());
     }
-
+    largs = (lcore_args *)calloc(threadnum, sizeof(lcore_args));
     std::unordered_map<int,int> lCore2Idx;
     std::unordered_map<int,int> Idx2LCore;
     CoreIdxMap(lCore2Idx, Idx2LCore);
