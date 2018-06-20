@@ -179,7 +179,7 @@ int main(int argc, char **argv)
     ap.addArgument("--sid", 1, true);
     ap.addArgument("--did", 1, true);
     ap.addArgument("--blocked", true);
-    ap.addFinalArgument("output", 1, true);
+    ap.addArgument("--output", 1, true);
 
     ap.parse(argc, (const char **)argv);
 
