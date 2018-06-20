@@ -146,6 +146,7 @@ lcore_execute(void *arg)
             }
         }
     }
+    printf("Thread %d has finished executing.\n", myarg->tid);
     return 0;
 }
 
@@ -255,6 +256,7 @@ int main(int argc, char **argv)
     // printf("Benchmark done\n");
 
     rte_eal_mp_wait_lcore();
+    printf("All threads have finished executing.\n");
 
     /* print status */
     if (ap.count("output") > 0)
