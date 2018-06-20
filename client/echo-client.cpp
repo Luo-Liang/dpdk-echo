@@ -92,6 +92,11 @@ lcore_execute(void *arg)
     pool = myarg->pool;
     //phase = myarg->phase;
     //bsz = BATCH_SIZE;
+    if (myarg->associatedPorts.size() == 0)
+    {
+        printf("Thread %d has finished executing.\n", myarg->tid);
+        return;
+    }
     while (myarg->samples.size() < myarg->counter)
     {
         for (auto port : myarg->associatedPorts)
@@ -276,7 +281,7 @@ int main(int argc, char **argv)
                 //from, to, ping result
                 ofile << ap.retrieve<std::string>("sid") << ","
                       << ap.retrieve<std::string>("did") << ","
-                      << t 
+                      << t
                       << std::endl;
             }
         }
