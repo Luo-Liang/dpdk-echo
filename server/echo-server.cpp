@@ -203,10 +203,12 @@ int main(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "master core must be 0. now is %d", rte_get_master_lcore());
     }
 
-    auto lCore2Idx = LCoreToIndex();
+    std::unordered_map<int,int> lCore2Idx;
+    std::unordered_map<int,int> Idx2LCore;
+    CoreIdxMap(lCore2Idx, Idx2LCore);
     for (int idx = 0; idx < threadnum; idx++)
     {
-        int CORE = lCore2Idx.at(idx);
+        int CORE = Idx2LCore.at(idx);
         largs[idx].CoreID = CORE;
         largs[idx].tid = idx;
         largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);

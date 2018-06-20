@@ -61,8 +61,8 @@ ports_init(struct lcore_args *largs,
            std::vector<std::string> suppliedIPs,
            std::vector<std::string> blockedSrcMac);
 
-std::unordered_map<int,int>
-LCoreToIndex();
+void CoreIdxMap(std::unordered_map<int, int>& lCore2Idx, 
+                std::unordered_map<int, int>& idx2LCoreId);
 
 
 #endif /* _CLUSTER_CFG_H */

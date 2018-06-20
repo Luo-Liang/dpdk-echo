@@ -189,7 +189,11 @@ int main(int argc, char **argv)
     IPFromString(ap.retrieve<std::string>("dstIp"), destination.ip);
     MACFromString(ap.retrieve<std::string>("dstMac"), destination.mac);
 
-    size_t samples = ap.retrieve<size_t>("samples");
+    size_t samples = atoi(ap.retrieve<std::string>("samples").c_str());
+    if(samples == -1) 
+    {
+        rte_exit(EXIT_FAILURE, "what is %s?", ap.retrieve<std::string>("samples").c_str());
+    }
     InitializePayloadConstants();
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
@@ -199,10 +203,12 @@ int main(int argc, char **argv)
     }
     largs = (lcore_args *)calloc(threadnum, sizeof(*largs));
 
-    auto lCore2Idx = LCoreToIndex();
+    std::unordered_map<int,int> lCore2Idx;
+    std::unordered_map<int,int> Idx2LCore;
+    CoreIdxMap(lCore2Idx, Idx2LCore);
     for (int idx = 0; idx < threadnum; idx++)
     {
-        int CORE = lCore2Idx.at(idx);
+        int CORE = Idx2LCore.at(idx);
         largs[idx].CoreID = CORE;
         largs[idx].tid = idx;
         largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);

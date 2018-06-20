@@ -24,7 +24,6 @@ int ports_init(struct lcore_args *largs,
     port_conf_default.txmode.mq_mode = ETH_MQ_TX_NONE;
     struct rte_eth_conf port_conf = port_conf_default;
     uint8_t q, rx_rings, tx_rings, nb_ports;
-    int retval, i;
     char bufpool_name[32];
 
     nb_ports = rte_eth_dev_count_avail();
@@ -38,7 +37,7 @@ int ports_init(struct lcore_args *largs,
         rte_eth_macaddr_get(i, &tmp);
         char macStr[18];
         snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
-                 tmp.addr_bytes, tmp.addr_bytes + 1, tmp.addr_bytes + 2, tmp.addr_bytes + 3, tmp.addr_bytes + 4, tmp.addr_bytes + 5);
+                 tmp.addr_bytes[0], tmp.addr_bytes[1], tmp.addr_bytes[2], tmp.addr_bytes[3], tmp.addr_bytes[4], tmp.addr_bytes[5]);
         std::string macString(macStr);
         if (std::find(blockedSrcMac.begin(), blockedSrcMac.end(), macString) != blockedSrcMac.end())
         {
@@ -52,7 +51,7 @@ int ports_init(struct lcore_args *largs,
             if(largs[thread].master) continue;
             if(targetThread == -1 || largs[i].associatedPorts.size() < largs[targetThread].associatedPorts.size())
             {
-                targetThread = i;
+                targetThread = thread;
             }
             //assign i to the core with minimum 
         }
@@ -64,12 +63,12 @@ int ports_init(struct lcore_args *largs,
         largs[targetThread].associatedPorts.push_back(i);
     }
 
-    for (i = 0; i < threadCount; i++)
+    for (int i = 0; i < threadCount; i++)
     {
         sprintf(bufpool_name, "bufpool_%d", i);
         largs[i].pool = rte_pktmbuf_pool_create(bufpool_name,
                                                 NUM_MBUFS, MBUF_CACHE_SIZE, 0,
-                                                RTE_MBUF_DEFAULT_BUF_SIZE, largs[i].CoreID);
+                                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_lcore_to_socket_id(largs[i].CoreID));
         if (largs[i].pool == NULL)
         {
             rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed\n");
@@ -91,7 +90,7 @@ int ports_init(struct lcore_args *largs,
     {
         //one queue is sufficient for echo?
         rx_rings = tx_rings = 1;
-        retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
+        int retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
         if (retval != 0)
         {
             printf("port init failed. %s. retval = %d\n", rte_strerror(rte_errno), retval);
@@ -149,11 +148,9 @@ int ports_init(struct lcore_args *largs,
     return 0;
 }
 
-std::unordered_map<int, int>
-LCoreToIndex()
+void CoreIdxMap(std::unordered_map<int, int>& lCore2Idx, std::unordered_map<int, int>& idx2LCoreId)
 {
     auto threadnum = rte_lcore_count();
-    std::unordered_map<int,int> lCore2Idx;
     auto activatedCoreCntr = 0;
     for (int CORE = 0;; CORE++)
     {
@@ -162,16 +159,16 @@ LCoreToIndex()
             //get its index.
             uint32_t idx = rte_lcore_index(CORE);
             lCore2Idx[CORE] = idx;
+            idx2LCoreId[idx] = CORE;
             if (idx >= threadnum)
             {
                 rte_exit(EXIT_FAILURE, "%d must be less than threadnum.", idx);
             }
-          
+            activatedCoreCntr++;
         }
-        if (activatedCoreCntr == threadnum - 1)
+        if (activatedCoreCntr == threadnum)
         {
             break;
         }
     }
-    return lCore2Idx;
 }
