@@ -186,6 +186,8 @@ int main(int argc, char **argv)
     ap.addArgument("--did", 1, true);
     ap.addArgument("--blocked", true);
     ap.addArgument("--output", 1, true);
+    //enable Windows Azure support
+    ap.addArgument("--az", 1, true);
 
     ap.parse(argc, (const char **)argv);
 
@@ -212,6 +214,11 @@ int main(int argc, char **argv)
     std::unordered_map<int, int> lCore2Idx;
     std::unordered_map<int, int> Idx2LCore;
     CoreIdxMap(lCore2Idx, Idx2LCore);
+    bool MSFTAZ = false;
+    if(ap.count("az") > 0)
+    {
+        MSFTAZ = true;
+    }
     for (int idx = 0; idx < threadnum; idx++)
     {
         int CORE = Idx2LCore.at(idx);
@@ -221,6 +228,7 @@ int main(int argc, char **argv)
         largs[idx].dst = destination;
         largs[idx].counter = samples;
         largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
+        largs[idx].AzureSupport = MSFTAZ;
     }
     std::vector<std::string> blockedIFs;
     if (ap.count("blocked") > 0)

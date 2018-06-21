@@ -62,13 +62,6 @@ lcore_execute(__attribute__((unused)) void *arg)
     struct rte_mbuf *response[BATCH_SIZE];
     int drops[BATCH_SIZE];
     uint16_t bsz, i, j, port, nb_ports;
-
-#ifdef PERF_DEBUG
-    struct timeval start, end;
-    static unsigned long long send_elapsed = 0, send_cnt = 0;
-    static unsigned long long recv_elapsed = 0, recv_cnt = 0;
-#endif
-
     myarg = (struct lcore_args *)arg;
     queue = 0; //myarg->tid;
     bsz = BATCH_SIZE;
@@ -78,10 +71,6 @@ lcore_execute(__attribute__((unused)) void *arg)
 
     do
     {
-#ifdef PERF_DEBUG
-        gettimeofday(&start, NULL);
-#endif
-
         for (int port : myarg->associatedPorts)
         {
             /* Receive and process requests */
@@ -89,17 +78,6 @@ lcore_execute(__attribute__((unused)) void *arg)
             {
                 rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
             }
-#ifdef PERF_DEBUG
-            gettimeofday(&end, NULL);
-            recv_elapsed += ((end.tv_sec * 1000000 + end.tv_usec) -
-                             (start.tv_sec * 1000000 + start.tv_usec));
-            if ((!(recv_cnt % 1000000)) && (recv_cnt != 0) && (recv_cnt < 10000000))
-            {
-                printf("recv time %lf\n",
-                       (recv_elapsed + 0.0) / (recv_cnt + 0.0));
-            }
-#endif
-
             for (i = 0; i < n; i++)
             {
                 drops[i] = pkt_server_process(bufs[i], myarg->type);
@@ -116,15 +94,8 @@ lcore_execute(__attribute__((unused)) void *arg)
                     response[j++] = bufs[i];
                     pkt_set_attribute(response[i]);
 
-#ifdef PERF_DEBUG
-                    recv_cnt++;
-#endif
                 }
             }
-
-#ifdef PERF_DEBUG
-            gettimeofday(&start, NULL);
-#endif
 
             i = 0;
             while (i < j)
@@ -136,18 +107,6 @@ lcore_execute(__attribute__((unused)) void *arg)
             //
         }
 
-#ifdef PERF_DEBUG
-        gettimeofday(&end, NULL);
-        send_elapsed += ((end.tv_sec * 1000000 + end.tv_usec) -
-                         (start.tv_sec * 1000000 + start.tv_usec));
-        send_cnt += j;
-        if ((!(send_cnt % 1000000)) && (send_cnt != 0) &&
-            (send_cnt < 10000000))
-        {
-            printf("send time is %lf\n",
-                   (send_elapsed + 0.0) / (recv_cnt + 0.0));
-        }
-#endif
     } while (1);
 
     return 0;
@@ -176,6 +135,7 @@ int main(int argc, char **argv)
     ArgumentParser ap;
     ap.addArgument("--ips", '+', false);
     ap.addArgument("--blocked", true);
+    ap.addArgument("--az", 1, true);
     ap.parse(argc, (const char**)argv);
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
     std::vector<std::string> macs;
@@ -198,6 +158,11 @@ int main(int argc, char **argv)
     std::unordered_map<int,int> lCore2Idx;
     std::unordered_map<int,int> Idx2LCore;
     CoreIdxMap(lCore2Idx, Idx2LCore);
+    bool MSFTAZ = false;
+    if(ap.count("az") > 0)
+    {
+        MSFTAZ = true;
+    }
     for (int idx = 0; idx < threadnum; idx++)
     {
         int CORE = Idx2LCore.at(idx);
@@ -206,6 +171,7 @@ int main(int argc, char **argv)
         largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
         largs[idx].counter = INT_MAX;
         largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
+        largs[idx].AzureSupport = MSFTAZ;
     }
 
     if (0 != ports_init(largs, threadnum , ips, macs))
