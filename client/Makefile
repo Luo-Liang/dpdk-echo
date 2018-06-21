@@ -51,7 +51,7 @@ CC = g++
 # binary name
 APP = echo-client
 LDFLAGS += -lstdc++
-CFLAGS += -O0 -g
+CFLAGS += -O3 -g
 #CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -std=c++11
 include $(RTE_SDK)/mk/rte.extapp.mk
