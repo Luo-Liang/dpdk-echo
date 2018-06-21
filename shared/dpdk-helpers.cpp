@@ -18,9 +18,9 @@ int ports_init(struct lcore_args *largs,
     //port_conf_default.rxmode.max_rx_pkt_len = ETHER_MAX_LEN;
     //port_conf_default.rxmode.split_hdr_size = 0;
     //port_conf_default.rxmode.ignore_offload_bitfield = 1;
-
     //port_conf_default.rx_adv_conf.rss_conf.rss_key = NULL;
     //port_conf_default.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_IP;
+    //port_conf_default.txmode.offloads = DEV_TX_OFFLOAD_UDP_CKSUM | DEV_TX_OFFLOAD_IPV4_CKSUM;
     port_conf_default.txmode.mq_mode = ETH_MQ_TX_NONE;
     struct rte_eth_conf port_conf = port_conf_default;
     uint8_t q, rx_rings, tx_rings, nb_ports;
@@ -121,6 +121,7 @@ int ports_init(struct lcore_args *largs,
 
         rte_eth_txconf txqConf;
         txqConf = devInfo.default_txconf;
+        //txqConf.offloads = port_conf.txmode.offloads;
         //txqConf.txq_flags = ETH_TXQ_FLAGS_IGNORE;
         //txqConf.offloads = port_conf.txmode.offloads;
         /* Allocate and set up TX queues for a given Ethernet port */

@@ -29,8 +29,9 @@ void pkt_build(char *pkt_ptr,
                       endhost& src,
                       endhost& des,
                       enum pkt_type type,
-                      uint8_t tid);
-void pkt_set_attribute(struct rte_mbuf *buf);
+                      uint8_t tid,
+                      bool manualCksum);
+void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum);
 void pkt_client_data_build(char *pkt_ptr, enum pkt_type type);
 int pkt_client_process(struct rte_mbuf *buf, enum pkt_type type);
 uint16_t udp_checksum(udphdr*, uint32_t, uint32_t);

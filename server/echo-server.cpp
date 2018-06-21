@@ -92,7 +92,7 @@ lcore_execute(__attribute__((unused)) void *arg)
                 else
                 {
                     response[j++] = bufs[i];
-                    pkt_set_attribute(response[i]);
+                    pkt_set_attribute(response[i], myarg->AzureSupport);
 
                 }
             }
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
     bool MSFTAZ = false;
     if(ap.count("az") > 0)
     {
-        MSFTAZ = true;
+        MSFTAZ = false;
     }
     for (int idx = 0; idx < threadnum; idx++)
     {

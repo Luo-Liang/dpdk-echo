@@ -4,6 +4,7 @@
 #ifndef _CLUSTER_CFG_H
 #define _CLUSTER_CFG_H
 
+#include <rte_ethdev.h>
 #include <rte_ether.h>
 #include <vector>
 #include <rte_memory.h>
@@ -13,7 +14,6 @@
 #include <rte_per_lcore.h>
 #include <rte_lcore.h>
 #include <rte_debug.h>
-#include <rte_ethdev.h>
 #include <string>
 #include <assert.h>
 #include <algorithm>
@@ -53,6 +53,7 @@ struct lcore_args
     //std::vector<uint32_t> coreIdx2LCoreId;
     uint32_t CoreID;
     bool master;
+    bool AzureSupport;
 }; //__attribute__((packed));
 
 int

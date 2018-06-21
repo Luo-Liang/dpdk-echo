@@ -132,16 +132,17 @@ pkt_swap_address(struct common_hdr *comhdr)
     comhdr->udp.src_port = tmp_udp;
 
     // Clear old checksumcomhdr->ip);
-    comhdr->ip.hdr_checksum = 0;
-    comhdr->udp.dgram_cksum = 0;
-    comhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&comhdr->ip, &comhdr->udp);
+    //comhdr->ip.hdr_checksum = 0;
+    //comhdr->udp.dgram_cksum = 0;
+    //comhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&comhdr->ip, &comhdr->udp);
 }
 
 void pkt_build(char *pkt_ptr,
-                      endhost& src,
-                      endhost& des,
-                      enum pkt_type type,
-                      uint8_t tid)
+               endhost &src,
+               endhost &des,
+               enum pkt_type type,
+               uint8_t tid,
+               bool manualCksum)
 {
     common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
 
@@ -159,7 +160,10 @@ void pkt_build(char *pkt_ptr,
     myhdr->ip.src_addr = ip_2_uint32(src.ip);
     myhdr->ip.dst_addr = ip_2_uint32(des.ip);
     myhdr->ip.hdr_checksum = 0;
-    myhdr->ip.hdr_checksum = rte_ipv4_cksum(&myhdr->ip);
+    //if (manualCksum)
+    //{
+        myhdr->ip.hdr_checksum = rte_ipv4_cksum(&myhdr->ip);
+    //}
     //printf("building a udp packet from ip = %d.%d.%d.%d to %d.%d.%d.%d\n", mysrc->ip[0], mysrc->ip[1], mysrc->ip[2], mysrc->ip[3], mydes->ip[0], mydes->ip[1], mydes->ip[2], mydes->ip[3]);
     // UDP header
     myhdr->udp.src_port = htons(UDP_SRC_PORT + tid);
@@ -168,14 +172,21 @@ void pkt_build(char *pkt_ptr,
         //UDP_HEADER_LEN;
     pkt_client_data_build(pkt_ptr, type);
     myhdr->udp.dgram_cksum = 0;
-    myhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&myhdr->ip, &myhdr->udp);// | 0; // uhdr.uh_sum = htons(0xba29);
+    //if(manualCksum)
+    //{
+        myhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&myhdr->ip, &myhdr->udp); // | 0; // uhdr.uh_sum = htons(0xba29);
+    //}
     //myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
     //printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
 }
 
-void pkt_set_attribute(struct rte_mbuf *buf)
+void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum)
 {
-    buf->ol_flags |= PKT_TX_IPV4  | PKT_TX_IP_CKSUM;
+    buf->ol_flags |= PKT_TX_IPV4;
+    if(manualCksum == false)
+    {
+        //buf->ol_flags |= PKT_TX_IP_CKSUM; 
+    }
     buf->l2_len = sizeof(struct ether_hdr);
     buf->l3_len = sizeof(struct ipv4_hdr);
 }

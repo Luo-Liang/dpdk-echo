@@ -81,8 +81,8 @@ lcore_execute(void *arg)
     uint8_t queue;
     struct rte_mempool *pool;
     //volatile enum benchmark_phase *phase;
-    struct rte_mbuf *bufs[BATCH_SIZE];
-    char *pkt_ptr;
+    //receive buffers.
+    struct rte_mbuf *rbufs[BATCH_SIZE];
     struct timeval start, end;
     uint64_t elapsed;
 
@@ -97,28 +97,33 @@ lcore_execute(void *arg)
         printf("Thread %d has finished executing.\n", myarg->tid);
         return 0;
     }
+    rte_mbuf* bufPorts[RTE_MAX_ETHPORTS];
+    for (auto port : myarg->associatedPorts)
+    {
+        //let me create a batch of packets that i will be using all the time, which is one.
+        auto pBuf = rte_pktmbuf_alloc(pool);
+        if (pBuf == NULL)
+        {
+            rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
+        }
+        rte_mbuf_refcnt_set(pBuf, myarg->counter);
+        auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
+        pkt_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
+                  myarg->type, queue, myarg->AzureSupport);
+        pkt_set_attribute(pBuf, myarg->AzureSupport);
+        bufPorts[port] = pBuf;
+    }
     while (myarg->samples.size() < myarg->counter)
     {
         for (auto port : myarg->associatedPorts)
         {
             /* Receive and process responses */
-
             //send a single packet and wait for response.
-
             /* Prepare and send requests */
-            if ((bufs[0] = rte_pktmbuf_alloc(pool)) == NULL)
-            {
-                rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
-            }
-
-            pkt_ptr = rte_pktmbuf_append(bufs[0], pkt_size(myarg->type));
-            pkt_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
-                      myarg->type, queue);
-            pkt_set_attribute(bufs[0]);
-
+            auto pBuf = bufPorts[port];
             //pkt_dump(bufs[i]);
             gettimeofday(&start, NULL);
-            if (0 > rte_eth_tx_burst(port, queue, bufs, 1))
+            if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
             {
                 rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
             }
@@ -127,14 +132,14 @@ lcore_execute(void *arg)
             while (found == false)
             {
                 int recv = 0;
-                if ((recv = rte_eth_rx_burst(port, queue, bufs, BATCH_SIZE)) < 0)
+                if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
                 {
                     rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
                 }
                 gettimeofday(&end, NULL);
                 for (int i = 0; i < recv; i++)
                 {
-                    if (pkt_client_process(bufs[i], myarg->type))
+                    if (pkt_client_process(rbufs[i], myarg->type))
                     {
                         found = true;
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
@@ -146,7 +151,7 @@ lcore_execute(void *arg)
 
                 for (int i = 0; i < recv; i++)
                 {
-                    rte_pktmbuf_free(bufs[i]);
+                    rte_pktmbuf_free(rbufs[i]);
                 }
             }
         }
@@ -215,9 +220,9 @@ int main(int argc, char **argv)
     std::unordered_map<int, int> Idx2LCore;
     CoreIdxMap(lCore2Idx, Idx2LCore);
     bool MSFTAZ = false;
-    if(ap.count("az") > 0)
+    if (ap.count("az") > 0)
     {
-        MSFTAZ = true;
+        MSFTAZ = false;
     }
     for (int idx = 0; idx < threadnum; idx++)
     {
