@@ -8,7 +8,7 @@ BASE=$(git merge-base @ "$UPSTREAM")
 if [ $LOCAL = $REMOTE ]; then
     echo "Up-to-date"
 elif [ $LOCAL = $BASE ]; then
-    echo "Need to pull"
+    echo "pulling and rebuilding..."
     git pull
     bash build.sh
 elif [ $REMOTE = $BASE ]; then
