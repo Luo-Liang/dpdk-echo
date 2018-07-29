@@ -12,6 +12,11 @@ int ports_init(struct lcore_args *largs,
                std::vector<std::string> suppliedIPs,
                std::vector<std::string> blockedSrcMac)
 {
+    if (rte_eal_process_type() != RTE_PROC_PRIMARY)
+    {
+        printf("[Error] DPDK-ECHO does not support MP.\n");
+        return -1;
+    }
     rte_eth_conf port_conf_default;
     memset(&port_conf_default, 0, sizeof(rte_eth_conf));
     port_conf_default.rxmode.mq_mode = ETH_MQ_RX_RSS;
