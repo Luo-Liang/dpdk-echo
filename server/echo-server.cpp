@@ -68,8 +68,7 @@ lcore_execute(__attribute__((unused)) void *arg)
     nb_ports = rte_eth_dev_count_avail();
 
     printf("Server worker %" PRIu8 " started\n", myarg->tid);
-
-    do
+    while (myarg->counter > 0)
     {
         for (int port : myarg->associatedPorts)
         {
@@ -93,7 +92,6 @@ lcore_execute(__attribute__((unused)) void *arg)
                 {
                     response[j++] = bufs[i];
                     pkt_set_attribute(response[i], myarg->AzureSupport);
-
                 }
             }
 
@@ -101,13 +99,13 @@ lcore_execute(__attribute__((unused)) void *arg)
             while (i < j)
             {
                 n = rte_eth_tx_burst(port, queue, response + i, j - i);
+                myarg->counter -= j - i;
                 i += n;
             }
 
             //
         }
-
-    } while (1);
+    }
 
     return 0;
 }
@@ -136,7 +134,8 @@ int main(int argc, char **argv)
     ap.addArgument("--ips", '+', false);
     ap.addArgument("--blocked", true);
     ap.addArgument("--az", 1, true);
-    ap.parse(argc, (const char**)argv);
+    ap.addArgument("--samples", 1, false);
+    ap.parse(argc, (const char **)argv);
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
     std::vector<std::string> macs;
     if (ap.count("blocked") > 0)
@@ -145,7 +144,7 @@ int main(int argc, char **argv)
     }
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
-    if(threadnum < 2) 
+    if (threadnum < 2)
     {
         rte_exit(EXIT_FAILURE, "use -c -l?! give more cores.");
     }
@@ -155,26 +154,30 @@ int main(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "master core must be 0. now is %d", rte_get_master_lcore());
     }
     largs = (lcore_args *)calloc(threadnum, sizeof(lcore_args));
-    std::unordered_map<int,int> lCore2Idx;
-    std::unordered_map<int,int> Idx2LCore;
+    std::unordered_map<int, int> lCore2Idx;
+    std::unordered_map<int, int> Idx2LCore;
     CoreIdxMap(lCore2Idx, Idx2LCore);
     bool MSFTAZ = false;
-    if(ap.count("az") > 0)
+    if (ap.count("az") > 0)
     {
         MSFTAZ = false;
     }
+
+    size_t samples = 1;
+    samples = atoi(ap.retrieve<std::string>("samples").c_str());
+
     for (int idx = 0; idx < threadnum; idx++)
     {
         int CORE = Idx2LCore.at(idx);
         largs[idx].CoreID = CORE;
         largs[idx].tid = idx;
         largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
-        largs[idx].counter = INT_MAX;
+        largs[idx].counter = samples;
         largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
         largs[idx].AzureSupport = MSFTAZ;
     }
 
-    if (0 != ports_init(largs, threadnum , ips, macs))
+    if (0 != ports_init(largs, threadnum, ips, macs))
     {
         rte_exit(EXIT_FAILURE, "ports_init failed with %s", rte_strerror(rte_errno));
     }
@@ -187,7 +190,7 @@ int main(int argc, char **argv)
     }
 
     printf("Master core performs maintainence\n");
-    fflush(stdout); 
+    fflush(stdout);
     rte_eal_mp_wait_lcore();
 
     free(largs);
