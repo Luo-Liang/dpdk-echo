@@ -97,7 +97,7 @@ lcore_execute(void *arg)
         printf("Thread %d has finished executing.\n", myarg->tid);
         return 0;
     }
-    rte_mbuf* bufPorts[RTE_MAX_ETHPORTS];
+    rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (auto port : myarg->associatedPorts)
     {
         //let me create a batch of packets that i will be using all the time, which is one.
@@ -299,6 +299,7 @@ int main(int argc, char **argv)
             }
         }
         ofile.close();
+        printf("file written to %s\r\n", file.c_str())
     }
     else
     {

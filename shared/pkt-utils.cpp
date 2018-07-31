@@ -154,7 +154,7 @@ void pkt_build(char *pkt_ptr,
     myhdr->ip.version_ihl = 0x45;
     myhdr->ip.total_length = htons(pkt_size(type) - ETHER_HEADER_LEN);
     myhdr->ip.packet_id = htons(44761);
-    myhdr->ip.fragment_offset = 0;
+    myhdr->ip.fragment_offset = htons(1 << 14);
     myhdr->ip.time_to_live = 64;
     myhdr->ip.next_proto_id = IPPROTO_UDP;
     myhdr->ip.src_addr = ip_2_uint32(src.ip);
