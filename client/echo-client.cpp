@@ -299,7 +299,7 @@ int main(int argc, char **argv)
             }
         }
         ofile.close();
-        printf("file written to %s\r\n", file.c_str())
+        printf("file written to %s\r\n", file.c_str());
     }
     else
     {
