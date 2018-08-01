@@ -16,3 +16,8 @@ elif [ $REMOTE = $BASE ]; then
 else
     echo "Diverged"
 fi
+
+
+if [ ! -f client/build/echo-client ] || [ ! -f server/build/echo-server ]; then
+    bash build.sh
+fi
