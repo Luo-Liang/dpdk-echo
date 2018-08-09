@@ -33,9 +33,15 @@ int ports_init(struct lcore_args *largs,
 
     nb_ports = rte_eth_dev_count_avail();
     printf("Number of ports of the server is %" PRIu8 "\n", nb_ports);
-    assert(nb_ports <= suppliedIPs.size());
+    //assert(nb_ports <= suppliedIPs.size());
     std::vector<int> portids;
     //now assign port to cores.
+    assert(nb_ports > 0);  
+    if(nb_ports >1 )
+    {
+        printf("Currently only 1 port is supported. setting nb_ports to 1\n");
+    }
+    nb_ports = 1;
     for (int i = 0; i < nb_ports; i++)
     {
         ether_addr tmp;
