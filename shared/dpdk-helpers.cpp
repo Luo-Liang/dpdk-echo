@@ -100,7 +100,7 @@ int ports_init(struct lcore_args *largs,
         {
             auto port = largs[i].associatedPorts.at(pidx);
             ether_addr tmp;
-            rte_eth_macaddr_get(i, &tmp);
+            rte_eth_macaddr_get(port, &tmp);
             char macStr[18];
             snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
                      tmp.addr_bytes[0], tmp.addr_bytes[1], tmp.addr_bytes[2], tmp.addr_bytes[3], tmp.addr_bytes[4], tmp.addr_bytes[5]);
