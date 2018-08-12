@@ -184,7 +184,7 @@ int main(int argc, char **argv)
 
     ArgumentParser ap;
     ap.addArgument("--srcIps", '+', false);
-    ap.addArgument("--srcMacs", "+", false);
+    ap.addArgument("--srcMacs", '+', false);
     ap.addArgument("--dstIp", 1, false);
     ap.addArgument("--dstMac", 1, false);
     ap.addArgument("--samples", 1, false);
