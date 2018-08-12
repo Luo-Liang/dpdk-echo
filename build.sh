@@ -1,3 +1,4 @@
 source ~/plink-marcopolo/initenv.sh
-cd server; make;
-cd ../client; make;
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd $dir/server; make;
+cd $dir/client; make;
