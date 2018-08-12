@@ -98,8 +98,9 @@ lcore_execute(void *arg)
         return 0;
     }
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
-    for (auto port : myarg->associatedPorts)
+    for (int i = 0; i < myarg->associatedPorts.size(); i++)
     {
+        auto port = myarg->associatedPorts.at(i);
         //let me create a batch of packets that i will be using all the time, which is one.
         auto pBuf = rte_pktmbuf_alloc(pool);
         if (pBuf == NULL)
@@ -108,7 +109,7 @@ lcore_execute(void *arg)
         }
         rte_mbuf_refcnt_set(pBuf, myarg->counter);
         auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
-        pkt_build(pkt_ptr, myarg->srcs.at(port), myarg->dst,
+        pkt_build(pkt_ptr, myarg->srcs.at(i), myarg->dst,
                   myarg->type, queue, myarg->AzureSupport);
         pkt_set_attribute(pBuf, myarg->AzureSupport);
         bufPorts[port] = pBuf;
