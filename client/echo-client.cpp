@@ -199,8 +199,10 @@ int main(int argc, char **argv)
 
     std::vector<std::string> srcips = ap.retrieve<std::vector<std::string>>("srcIps");
     std::vector<std::string> srcMacs = ap.retrieve<std::vector<std::string>>("srcMacs");
-    CHECK(srcips.size() == srcMacs.size()) << "specify same number of ips and macs.";
-
+    if (srcips.size() != srcMacs.size())
+    {
+        rte_exit(EXIT_FAILURE, "specify same number of ips and macs.");
+    }
     endhost destination;
     destination.id = 9367;
     IPFromString(ap.retrieve<std::string>("dstIp"), destination.ip);

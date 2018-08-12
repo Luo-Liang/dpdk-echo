@@ -145,7 +145,10 @@ int main(int argc, char **argv)
         blockedIfs = ap.retrieve<std::vector<std::string>>("blocked");
     }
     macs = ap.retrieve<std::vector<std::string>>("macs");
-    CHECK(ips.size() == macs.size()) << "specify same number of ips and macs.";
+    if(ips.size() != macs.size())
+    {
+        rte_exit(EXIT_FAILURE, "specify same number of ips and macs.");
+    }
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
     if (threadnum < 2)
