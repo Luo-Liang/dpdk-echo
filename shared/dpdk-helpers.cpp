@@ -37,12 +37,12 @@ int ports_init(struct lcore_args *largs,
     //assert(nb_ports <= suppliedIPs.size());
     std::vector<int> portids;
     //now assign port to cores.
-    assert(nb_ports > 0);  
-    if(nb_ports >1 )
+    assert(nb_ports > 0);
+    if (nb_ports > 1)
     {
         printf("Currently only 1 port is supported. setting nb_ports to 1\n");
     }
-    
+
     //nb_ports = 1;
     for (int i = 0; i < nb_ports; i++)
     {
@@ -58,24 +58,25 @@ int ports_init(struct lcore_args *largs,
             continue;
         }
         //this port is not blocked.
-        if(std::find(suppliedMacs.begin(), suppliedMacs.end(), macString) == suppliedMacs.end())
+        if (std::find(suppliedMacs.begin(), suppliedMacs.end(), macString) == suppliedMacs.end())
         {
             //but this port is not selected :/
             continue;
         }
         //skip largs[0], which is for master.
         int targetThread = -1;
-        for(int thread = 0; thread < threadCount; thread++)
+        for (int thread = 0; thread < threadCount; thread++)
         {
-            if(largs[thread].master) continue;
-            if(targetThread == -1 || largs[i].associatedPorts.size() < largs[targetThread].associatedPorts.size())
+            if (largs[thread].master)
+                continue;
+            if (targetThread == -1 || largs[i].associatedPorts.size() < largs[targetThread].associatedPorts.size())
             {
                 targetThread = thread;
             }
             //assign i to the core with minimum of ports.
         }
         portids.push_back(i);
-        if(targetThread == -1)
+        if (targetThread == -1)
         {
             rte_exit(EXIT_FAILURE, "Bug Check.");
         }
@@ -98,10 +99,27 @@ int ports_init(struct lcore_args *largs,
         for (size_t pidx = 0; pidx < largs[i].associatedPorts.size(); pidx++)
         {
             auto port = largs[i].associatedPorts.at(pidx);
-            rte_eth_macaddr_get(port, (ether_addr *)largs[i].srcs.at(pidx).mac);
-            //since nb_ports < suppliedIp.size, assign port-th to suppliedIps
-            IPFromString(suppliedIPs.at(port), largs[i].srcs.at(pidx).ip);
-            //largs[i].srcMacs.push_back( = get_endhost_id(myaddr);
+            ether_addr tmp;
+            rte_eth_macaddr_get(i, &tmp);
+            char macStr[18];
+            snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+                     tmp.addr_bytes[0], tmp.addr_bytes[1], tmp.addr_bytes[2], tmp.addr_bytes[3], tmp.addr_bytes[4], tmp.addr_bytes[5]);
+            std::string macString(macStr);
+            bool found = false;
+            for (int suppliedIdx = 0; suppliedIdx < suppliedIPs.size(); suppliedIdx++)
+            {
+                auto testMac = suppliedMacs.at(suppliedIdx);
+                if (testMac == macStr)
+                {
+                    rte_eth_macaddr_get(port, (ether_addr *)largs[i].srcs.at(pidx).mac);
+                    //since nb_ports < suppliedIp.size, assign port-th to suppliedIps
+                    IPFromString(suppliedIPs.at(suppliedIdx), largs[i].srcs.at(pidx).ip);
+                    //largs[i].srcMacs.push_back( = get_endhost_id(myaddr);
+                    found = true;
+                    break;
+                }
+            }
+            assert(found);
         }
     }
 
@@ -168,7 +186,7 @@ int ports_init(struct lcore_args *largs,
     return 0;
 }
 
-void CoreIdxMap(std::unordered_map<int, int>& lCore2Idx, std::unordered_map<int, int>& idx2LCoreId)
+void CoreIdxMap(std::unordered_map<int, int> &lCore2Idx, std::unordered_map<int, int> &idx2LCoreId)
 {
     auto threadnum = rte_lcore_count();
     auto activatedCoreCntr = 0;
