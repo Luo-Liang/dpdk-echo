@@ -27,12 +27,13 @@
 #define rte_eth_dev_count_avail rte_eth_dev_count
 #define IPV4_ADDR_LEN 4
 
-
-enum pkt_type {
+enum pkt_type
+{
     ECHO,
 };
 
-struct endhost {
+struct endhost
+{
     int id;
     uint8_t mac[ETHER_ADDR_LEN];
     uint8_t ip[IPV4_ADDR_LEN];
@@ -56,14 +57,14 @@ struct lcore_args
     bool AzureSupport;
 }; //__attribute__((packed));
 
-int
-ports_init(struct lcore_args *largs,
-           uint8_t workerCnt,
-           std::vector<std::string> suppliedIPs,
-           std::vector<std::string> blockedSrcMac);
+int ports_init(struct lcore_args *largs,
+               //contains one master thread.
+               uint8_t threadCount,
+               std::vector<std::string> suppliedIPs,
+               std::vector<std::string> suppliedMacs,
+               std::vector<std::string> blockedSrcMac);
 
-void CoreIdxMap(std::unordered_map<int, int>& lCore2Idx, 
-                std::unordered_map<int, int>& idx2LCoreId);
-
+void CoreIdxMap(std::unordered_map<int, int> &lCore2Idx,
+                std::unordered_map<int, int> &idx2LCoreId);
 
 #endif /* _CLUSTER_CFG_H */

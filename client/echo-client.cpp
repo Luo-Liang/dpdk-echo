@@ -184,6 +184,7 @@ int main(int argc, char **argv)
 
     ArgumentParser ap;
     ap.addArgument("--srcIps", '+', false);
+    ap.addArgument("--srcMacs", "+", false);
     ap.addArgument("--dstIp", 1, false);
     ap.addArgument("--dstMac", 1, false);
     ap.addArgument("--samples", 1, false);
@@ -197,6 +198,9 @@ int main(int argc, char **argv)
     ap.parse(argc, (const char **)argv);
 
     std::vector<std::string> srcips = ap.retrieve<std::vector<std::string>>("srcIps");
+    std::vector<std::string> srcMacs = ap.retrieve<std::vector<std::string>>("srcMacs");
+    CHECK(srcips.size() == srcMacs.size()) << "specify same number of ips and macs.";
+
     endhost destination;
     destination.id = 9367;
     IPFromString(ap.retrieve<std::string>("dstIp"), destination.ip);
@@ -240,7 +244,7 @@ int main(int argc, char **argv)
     {
         blockedIFs = ap.retrieve<std::vector<std::string>>("blocked");
     }
-    ret = ports_init(largs, threadnum, srcips, blockedIFs);
+    ret = ports_init(largs, threadnum, srcips, srcMacs, blockedIFs);
     if (ret != 0)
     {
         printf("port init failed. %s.\n", rte_strerror(rte_errno));

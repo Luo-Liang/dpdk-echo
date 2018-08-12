@@ -10,6 +10,7 @@ int ports_init(struct lcore_args *largs,
                //contains one master thread.
                uint8_t threadCount,
                std::vector<std::string> suppliedIPs,
+               std::vector<std::string> suppliedMacs,
                std::vector<std::string> blockedSrcMac)
 {
     if (rte_eal_process_type() != RTE_PROC_PRIMARY)
@@ -56,6 +57,12 @@ int ports_init(struct lcore_args *largs,
             // this interface is blocked.
             continue;
         }
+        //this port is not blocked.
+        if(std::find(suppliedMacs.begin(), suppliedMacs.end(), macString) == suppliedMacs.end())
+        {
+            //but this port is not selected :/
+            continue;
+        }
         //skip largs[0], which is for master.
         int targetThread = -1;
         for(int thread = 0; thread < threadCount; thread++)
@@ -65,7 +72,7 @@ int ports_init(struct lcore_args *largs,
             {
                 targetThread = thread;
             }
-            //assign i to the core with minimum 
+            //assign i to the core with minimum of ports.
         }
         portids.push_back(i);
         if(targetThread == -1)

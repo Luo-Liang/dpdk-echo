@@ -132,16 +132,20 @@ int main(int argc, char **argv)
 
     ArgumentParser ap;
     ap.addArgument("--ips", '+', false);
+    ap.addArgument("--macs", '+', fakse);
     ap.addArgument("--blocked", true);
     ap.addArgument("--az", 1, true);
     ap.addArgument("--samples", 1, false);
     ap.parse(argc, (const char **)argv);
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
-    std::vector<std::string> macs;
+    std::vector<std::string> macs = ap.retrieve<std::vector<std::string>>("macs");
+    std::vector<std::string> blockedIfs;
     if (ap.count("blocked") > 0)
     {
-        macs = ap.retrieve<std::vector<std::string>>("blocked");
+        blockedIfs = ap.retrieve<std::vector<std::string>>("blocked");
     }
+    macs = ap.retrieve<std::vector<std::string>>("macs");
+    CHECK(ips.size() == macs.size()) << "specify same number of ips and macs.";
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
     if (threadnum < 2)
@@ -177,7 +181,7 @@ int main(int argc, char **argv)
         largs[idx].AzureSupport = MSFTAZ;
     }
 
-    if (0 != ports_init(largs, threadnum, ips, macs))
+    if (0 != ports_init(largs, threadnum, ips, macs, blockedIfs))
     {
         rte_exit(EXIT_FAILURE, "ports_init failed with %s", rte_strerror(rte_errno));
     }
