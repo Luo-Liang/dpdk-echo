@@ -132,7 +132,7 @@ int main(int argc, char **argv)
 
     ArgumentParser ap;
     ap.addArgument("--ips", '+', false);
-    ap.addArgument("--macs", '+', fakse);
+    ap.addArgument("--macs", '+', false);
     ap.addArgument("--blocked", true);
     ap.addArgument("--az", 1, true);
     ap.addArgument("--samples", 1, false);
