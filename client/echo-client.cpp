@@ -323,7 +323,7 @@ int main(int argc, char **argv)
             }
             cntr += largs[i].samples.size();
         }
-        printf("MIN = %d, MAX = %d, AVG = %d\n", min, max, avg / cntr);
+        printf("MIN = %d, MAX = %d, AVG = %d\n", (int)min, (int)max, (int)(avg / cntr));
     }
     free(largs);
     return 0;
