@@ -99,7 +99,7 @@ pkt_size(enum pkt_type type)
     return ret;
 }
 
-static inline uint32_t
+uint32_t
 ip_2_uint32(uint8_t ip[])
 {
     uint32_t myip = 0;
@@ -206,16 +206,17 @@ void pkt_client_data_build(char *pkt_ptr,
 }
 
 int pkt_client_process(struct rte_mbuf *buf,
-                       enum pkt_type type)
+                       enum pkt_type type,
+                       uint32_t ip)
 {
     int ret = 0;
 
     if (type == ECHO)
     {
         struct echo_hdr *mypkt;
-
         mypkt = rte_pktmbuf_mtod(buf, struct echo_hdr *);
-        if (!memcmp(mypkt->payload, contents.c_str(), ECHO_PAYLOAD_LEN))
+         
+        if (mypkt->pro_hdr.ip.src_addr == ip && !memcmp(mypkt->payload, contents.c_str(), ECHO_PAYLOAD_LEN))
         {
             ret = 1;
         }
@@ -252,7 +253,7 @@ int pkt_server_process(struct rte_mbuf *buf,
         struct echo_hdr *mypkt;
 
         mypkt = rte_pktmbuf_mtod(buf, struct echo_hdr *);
-        if (mypkt->pro_hdr.ip.next_proto_id == 17 && !memcmp(mypkt->payload, contents.c_str(), ECHO_PAYLOAD_LEN))
+        if (!memcmp(mypkt->payload, contents.c_str(), ECHO_PAYLOAD_LEN))
         {
             pkt_swap_address(&mypkt->pro_hdr);
             //pkt_server_data_build(mypkt->payload, type);

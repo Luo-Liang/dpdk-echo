@@ -114,6 +114,7 @@ lcore_execute(void *arg)
         pkt_set_attribute(pBuf, myarg->AzureSupport);
         bufPorts[port] = pBuf;
     }
+    uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
     while (myarg->samples.size() < myarg->counter)
     {
         for (auto port : myarg->associatedPorts)
@@ -137,10 +138,11 @@ lcore_execute(void *arg)
                 {
                     rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
                 }
+
                 gettimeofday(&end, NULL);
                 for (int i = 0; i < recv; i++)
                 {
-                    if (pkt_client_process(rbufs[i], myarg->type))
+                    if (pkt_client_process(rbufs[i], myarg->type, expectedRemoteIp))
                     {
                         found = true;
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
