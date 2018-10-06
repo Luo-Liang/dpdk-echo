@@ -156,6 +156,14 @@ lcore_execute(void *arg)
                 {
                     rte_pktmbuf_free(rbufs[i]);
                 }
+
+                //what if the packet is lost??
+                if((end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec) > 1000000)
+                {
+                    //1 sec is long enough for us to tell the packet is lost.
+                    found = true;
+                    //this will trigger a resend.
+                }
             }
         }
     }
