@@ -97,6 +97,14 @@ lcore_execute(void *arg)
         printf("Thread %d has finished executing.\n", myarg->tid);
         return 0;
     }
+
+
+    if(myarg->associatedPorts.size() > 1)
+    {
+        assert(false);
+    }
+
+
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (int i = 0; i < myarg->associatedPorts.size(); i++)
     {
@@ -158,12 +166,19 @@ lcore_execute(void *arg)
                 }
 
                 //what if the packet is lost??
-                if((end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec) > 1000000)
+                long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+                if (timeDelta > 1000000)
                 {
                     //1 sec is long enough for us to tell the packet is lost.
                     found = true;
                     //this will trigger a resend.
+                    if (myarg->samples.size() == myarg->counter - 1)
+                    {
+                        myarg->samples.push_back(timeDelta);
+                    }
                 }
+                //but what about server is turned off, because it thinks it sent the last message?
+                //but that last messagfe is lost? i cannot resend forever.
             }
         }
     }
