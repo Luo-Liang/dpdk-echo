@@ -171,11 +171,12 @@ lcore_execute(void *arg)
                 {
                     //1 sec is long enough for us to tell the packet is lost.
                     found = true;
+		    
                     //this will trigger a resend.
-                    if (myarg->samples.size() == myarg->counter - 1)
-                    {
-                        myarg->samples.push_back(timeDelta);
-                    }
+                    //if (myarg->samples.size() == myarg->counter - 1)
+                    //{
+                    myarg->samples.push_back(timeDelta);
+		    //}
                 }
                 //but what about server is turned off, because it thinks it sent the last message?
                 //but that last messagfe is lost? i cannot resend forever.
