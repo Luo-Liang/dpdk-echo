@@ -123,7 +123,8 @@ lcore_execute(void *arg)
         bufPorts[port] = pBuf;
     }
     uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
-    while (myarg->samples.size() < myarg->counter)
+    int consecTimeouts = 0;
+    while (myarg->samples.size() < myarg->counter && consecTimeouts < 10)
     {
         for (auto port : myarg->associatedPorts)
         {
@@ -152,6 +153,7 @@ lcore_execute(void *arg)
                 {
                     if (pkt_client_process(rbufs[i], myarg->type, expectedRemoteIp))
                     {
+		      consecTimeouts = 0;
                         found = true;
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
                         elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
@@ -171,7 +173,7 @@ lcore_execute(void *arg)
                 {
                     //1 sec is long enough for us to tell the packet is lost.
                     found = true;
-		    
+		    consecTimeouts++;
                     //this will trigger a resend.
                     //if (myarg->samples.size() == myarg->counter - 1)
                     //{
