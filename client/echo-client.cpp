@@ -175,7 +175,8 @@ lcore_execute(void *arg)
                     //this will trigger a resend.
                     //if (myarg->samples.size() == myarg->counter - 1)
                     //{
-                    myarg->samples.push_back(timeDelta);
+		    myarg->counter--;
+                    //myarg->samples.push_back(timeDelta);
 		    //}
                 }
                 //but what about server is turned off, because it thinks it sent the last message?
