@@ -74,6 +74,57 @@ pkt_dump(struct rte_mbuf *buf)
     rte_pktmbuf_dump(stdout, buf, rte_pktmbuf_pkt_len(buf));
 }*/
 
+
+int ProbeSelfLatency(void* arg)
+{
+    auto myarg = (lcore_args*)arg;
+    auto pool = myarg->pool;
+    auto port = myarg->associatedPorts.at(0);
+    auto pBuf = rte_pktmbuf_alloc(pool);
+    auto queue = 0;
+    const int PROBE_COUNT = 500;
+    int selfProbeCount = PROBE_COUNT;
+    if(pBuf == NULL)
+    {
+        rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed for self test probe.");
+        rte_mbuf_refcnt_set(pBuf, selfProbeCount);
+        auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
+        pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->srcs.at(0), myarg->type, queue, myarg->AzureSupport);
+    }
+    struct rte_mbuf *rbufs[BATCH_SIZE];
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+    uint32_t selfProbeIP = ip_2_uint32(myarg->srcs.at(0).ip);
+    while(selfProbeCount -- > 0)
+    {
+        if(0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
+        {
+            rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
+        }
+        bool found = false;
+        while(found == false)
+        {
+            int recv = 0;
+            if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
+            {
+                rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed in self probe\n");
+            }
+            for(int i = 0; i < recv; i++)
+            {
+                if (pkt_client_process(rbufs[i], myarg->type, selfProbeIP))
+                {
+                    found = true;
+                    selfProbeCount--;
+                }
+            }
+        }
+    }
+    gettimeofday(&end, NULL);
+    int elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+    return elapsed / PROBE_COUNT;
+}
+
+
 static int
 lcore_execute(void *arg)
 {
@@ -104,7 +155,8 @@ lcore_execute(void *arg)
         assert(false);
     }
 
-
+    int selfLatency = ProbeSelfLatency(arg);
+    printf("Thread %d self probe latency = %d.\n", myarg->tid, selfLatency);
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (int i = 0; i < myarg->associatedPorts.size(); i++)
     {
@@ -122,6 +174,8 @@ lcore_execute(void *arg)
         pkt_set_attribute(pBuf, myarg->AzureSupport);
         bufPorts[port] = pBuf;
     }
+
+
     uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
     int consecTimeouts = 0;
     while (myarg->samples.size() < myarg->counter && consecTimeouts < 10)
@@ -153,12 +207,12 @@ lcore_execute(void *arg)
                 {
                     if (pkt_client_process(rbufs[i], myarg->type, expectedRemoteIp))
                     {
-		      consecTimeouts = 0;
+                        consecTimeouts = 0;
                         found = true;
-                        //__sync_fetch_and_add(&tot_proc_pkts, 1);
+                                    //__sync_fetch_and_add(&tot_proc_pkts, 1);
                         elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
-                                  (end.tv_usec - start.tv_usec);
-                        myarg->samples.push_back(elapsed);
+                                            (end.tv_usec - start.tv_usec);
+                        myarg->samples.push_back(elapsed - selfLatency);
                     }
                 }
 
@@ -173,11 +227,11 @@ lcore_execute(void *arg)
                 {
                     //1 sec is long enough for us to tell the packet is lost.
                     found = true;
-		    consecTimeouts++;
-                    //this will trigger a resend.
-                    //if (myarg->samples.size() == myarg->counter - 1)
-                    //{
-		    myarg->counter--;
+                    consecTimeouts++;
+                            //this will trigger a resend.
+                            //if (myarg->samples.size() == myarg->counter - 1)
+                            //{
+                    myarg->counter--;
                     //myarg->samples.push_back(timeDelta);
 		    //}
                 }
