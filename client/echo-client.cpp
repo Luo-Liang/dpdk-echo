@@ -126,6 +126,20 @@ int ProbeSelfLatency(void* arg)
 		    auto diff =(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
 		    elapsed += diff;
                 }
+
+		long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+                if (found == false && timeDelta > 1000000)
+                {
+                    //1 sec is long enough for us to tell the packet is lost.
+                    found = true;
+		    //this will trigger a resend.
+		    //if (myarg->samples.size() == myarg->counter - 1)
+		    //{
+		    selfProbeCount--;
+                    //myarg->samples.push_back(timeDelta);
+                    //}
+                }
+
             }
         }
     }
