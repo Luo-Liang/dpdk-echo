@@ -84,7 +84,7 @@ int ProbeSelfLatency(void* arg)
     auto port = myarg->associatedPorts.at(0);
     auto pBuf = rte_pktmbuf_alloc(pool);
     auto queue = 0;
-    const int PROBE_COUNT = 500;
+    const int PROBE_COUNT = 1000;
     int selfProbeCount = PROBE_COUNT;
     if(pBuf == NULL)
     {
@@ -98,7 +98,8 @@ int ProbeSelfLatency(void* arg)
     //printf("here2");    
     struct rte_mbuf *rbufs[BATCH_SIZE];
     struct timeval start, end;
-    gettimeofday(&start, NULL);
+
+    int elapsed = 0;
     uint32_t selfProbeIP = ip_2_uint32(myarg->srcs.at(0).ip);
     while(selfProbeCount -- > 0)
     {
@@ -106,6 +107,7 @@ int ProbeSelfLatency(void* arg)
         {
             rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
         }
+	gettimeofday(&start, NULL);	
         bool found = false;
         while(found == false)
         {
@@ -114,20 +116,21 @@ int ProbeSelfLatency(void* arg)
             {
                 rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed in self probe\n");
             }
+	    gettimeofday(&end, NULL);
             for(int i = 0; i < recv; i++)
             {
-	      printf("received %d\n", recv);
                 if (pkt_client_process(rbufs[i], myarg->type, selfProbeIP))
                 {
                     found = true;
                     selfProbeCount--;
+		    auto diff =(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+		    elapsed += diff;
                 }
             }
         }
     }
-    gettimeofday(&end, NULL);
-    int elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-    return elapsed / PROBE_COUNT;
+
+    return 2 * (elapsed / PROBE_COUNT);
 }
 
 
@@ -218,7 +221,7 @@ lcore_execute(void *arg)
                                     //__sync_fetch_and_add(&tot_proc_pkts, 1);
                         elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
                                             (end.tv_usec - start.tv_usec);
-                        myarg->samples.push_back(elapsed - selfLatency);
+                        myarg->samples.push_back(elapsed - selfLatency >= 0? elapsed - selfLatency, 0);
                     }
                 }
 
