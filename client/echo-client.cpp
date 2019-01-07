@@ -67,6 +67,7 @@
 
 uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
 std::unordered_map<uint32_t, uint32_t> lCore2Idx;
+
 /*static inline void 
 pkt_dump(struct rte_mbuf *buf)
 {
@@ -77,6 +78,7 @@ pkt_dump(struct rte_mbuf *buf)
 
 int ProbeSelfLatency(void* arg)
 {
+    //printf("here1");
     auto myarg = (lcore_args*)arg;
     auto pool = myarg->pool;
     auto port = myarg->associatedPorts.at(0);
@@ -87,10 +89,13 @@ int ProbeSelfLatency(void* arg)
     if(pBuf == NULL)
     {
         rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed for self test probe.");
-        rte_mbuf_refcnt_set(pBuf, selfProbeCount);
-        auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
-        pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->srcs.at(0), myarg->type, queue, myarg->AzureSupport);
     }
+    //printf("here3");
+    rte_mbuf_refcnt_set(pBuf, selfProbeCount);
+    auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
+    pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->srcs.at(0), myarg->type, queue, myarg->AzureSupport);
+    //pkt_dump(pBuf);
+    //printf("here2");    
     struct rte_mbuf *rbufs[BATCH_SIZE];
     struct timeval start, end;
     gettimeofday(&start, NULL);
@@ -111,6 +116,7 @@ int ProbeSelfLatency(void* arg)
             }
             for(int i = 0; i < recv; i++)
             {
+	      printf("received %d\n", recv);
                 if (pkt_client_process(rbufs[i], myarg->type, selfProbeIP))
                 {
                     found = true;
