@@ -202,7 +202,7 @@ lcore_execute(void *arg)
 
     uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
     int consecTimeouts = 0;
-    while (myarg->samples.size() < myarg->counter && consecTimeouts < 10)
+    while (myarg->samples.size() < myarg->counter && consecTimeouts < 1000)
     {
         for (auto port : myarg->associatedPorts)
         {
