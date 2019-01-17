@@ -250,7 +250,8 @@ lcore_execute(void *arg)
                     //if (myarg->samples.size() == myarg->counter - 1)
                     //{
                     myarg->counter--;
-                    //myarg->samples.push_back(timeDelta);
+                    //choosing median. penalizing drops.
+                    myarg->samples.push_back(1000);
                     //}
                 }
                 //but what about server is turned off, because it thinks it sent the last message?
