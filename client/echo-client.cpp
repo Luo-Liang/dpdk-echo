@@ -142,7 +142,7 @@ int ProbeSelfLatency(void *arg)
         }
     }
 
-    return 2 * (elapsed / PROBE_COUNT);
+    return (elapsed / PROBE_COUNT);
 }
 
 static int
