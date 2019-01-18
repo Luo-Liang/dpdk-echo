@@ -193,7 +193,6 @@ lcore_jitter(void *args)
             rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
         }
         myarg->counter -= BATCH_SIZE;
-
     }
 }
 
@@ -347,6 +346,7 @@ int main(int argc, char **argv)
     ap.addArgument("--did", 1, true);
     ap.addArgument("--blocked", true);
     ap.addArgument("--output", 1, true);
+    ap.addArgument("--benchmark", 1, false);
     //enable Windows Azure support
     ap.addArgument("--az", 1, true);
 
@@ -417,12 +417,22 @@ int main(int argc, char **argv)
     // }
 
     /* call lcore_execute() on every slave lcore */
-    RTE_LCORE_FOREACH_SLAVE(lcore_id)
+    if (ap.retrieve<std::string>("benchmark") == "jitter")
     {
-        rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]),
-                              lcore_id);
+        RTE_LCORE_FOREACH_SLAVE(lcore_id)
+        {
+            rte_eal_remote_launch(lcore_jitter, (void *)(&largs[lCore2Idx.at(lcore_id)]),
+                                  lcore_id);
+        }
     }
-
+    else
+    {
+        RTE_LCORE_FOREACH_SLAVE(lcore_id)
+        {
+            rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]),
+                                  lcore_id);
+        }        
+    }
     //sleep(mysettings.run_time);
 
     // if (mysettings.cooldown_time)
