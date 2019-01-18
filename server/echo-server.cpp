@@ -52,7 +52,7 @@
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
 
-#define JITTER_TEST_RECV_BATCH_SIZE 16384
+#define JITTER_TEST_RECV_BATCH_SIZE 65536
 
 static int
 lcore_jitter(__attribute__((unused)) void *arg)
@@ -63,7 +63,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
     printf("Server worker %" PRIu8 " started\n", myarg->tid);
     int drops[JITTER_TEST_RECV_BATCH_SIZE];
     rte_mbuf *bufs[JITTER_TEST_RECV_BATCH_SIZE];
-    timeval now, prev, start;
+    timeval now, prev = 0, start;
     gettimeofday(&start, NULL);
     int prevReading = -1;
     assert(myarg->associatedPorts.size() == 1);
@@ -77,7 +77,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
             rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
         }
 
-        if (prevReading > 0 && prevReading != JITTER_TEST_RECV_BATCH_SIZE  && recved != 0)
+        if (prevReading > 0 && prevReading != JITTER_TEST_RECV_BATCH_SIZE  && recved != 0 && prev != 0)
         {
 
             long diff = (now.tv_sec - prev.tv_sec) * 1000000L + (now.tv_usec - prev.tv_usec);
@@ -100,7 +100,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
         {
             break;
         }
-        myarg->counter -= recved;
+        //myarg->counter -= recved;
         prevReading = recved;
         prev = now;
     }
