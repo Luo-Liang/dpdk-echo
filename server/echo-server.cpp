@@ -89,7 +89,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
             }
             else
             {
-                printf("recved = %d. diff= %llu\n", recved, diff);
+                //printf("recved = %d. diff= %llu\n", recved, diff);
             }
             //p;
         }
