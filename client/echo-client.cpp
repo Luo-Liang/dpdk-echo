@@ -188,9 +188,9 @@ lcore_jitter(void *args)
         int txed = 0;
         if (0 > (txed = rte_eth_tx_burst(port, queue, sbufs, BATCH_SIZE)))
         {
-            printf("remaining pkts = %d\n", myarg->counter);
             rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
         }
+        printf("remaining pkts = %d\n", myarg->counter);
         myarg->counter -= txed;
     }
 }
