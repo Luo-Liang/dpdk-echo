@@ -52,7 +52,7 @@ struct lcore_args
     //volatile enum benchmark_phase *phase;
     struct rte_mempool *pool;
     std::vector<uint64_t> samples;
-    size_t counter;
+    int counter;
     std::vector<uint32_t> associatedPorts;
     //std::vector<uint32_t> coreIdx2LCoreId;
     uint32_t CoreID;
