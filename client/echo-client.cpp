@@ -183,16 +183,14 @@ lcore_jitter(void *args)
         pkt_set_attribute(pBuf, myarg->AzureSupport);
         sbufs[i] = pBuf;
     }
-    timeval start, end;
-    uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
-    int consecTimeouts = 0;
     while (myarg->counter > 0)
     {
-        if (BATCH_SIZE != rte_eth_tx_burst(port, queue, sbufs, BATCH_SIZE))
+        int txed = 0;
+        if (0 > (txed = rte_eth_tx_burst(port, queue, sbufs, BATCH_SIZE)))
         {
             rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
         }
-        myarg->counter -= BATCH_SIZE;
+        myarg->counter -= txed;
     }
 }
 
