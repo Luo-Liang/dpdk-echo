@@ -52,7 +52,8 @@
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
 
-#define JITTER_TEST_RECV_BATCH_SIZE 65536
+//this is the maximum we can have.
+#define JITTER_TEST_RECV_BATCH_SIZE 65535
 
 static int
 lcore_jitter(__attribute__((unused)) void *arg)

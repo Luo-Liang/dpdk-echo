@@ -177,7 +177,7 @@ lcore_jitter(void *args)
         {
             rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
         }
-        rte_mbuf_refcnt_set(pBuf, myarg->counter);
+        rte_mbuf_refcnt_set(pBuf, UINT16_MAX);
         auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
         pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->dst, myarg->type, queue, myarg->AzureSupport);
         pkt_set_attribute(pBuf, myarg->AzureSupport);
@@ -185,6 +185,7 @@ lcore_jitter(void *args)
     }
     timeval start, now;
     gettimeofday(&start, NULL);
+    myarg->counter = 0;
     while (true)
     {
         int txed = 0;
@@ -197,6 +198,14 @@ lcore_jitter(void *args)
         if (now.tv_sec - start.tv_sec > 10)
         {
             break;
+        }
+        myarg->counter++;
+        if (myarg->counter % (UINT16_MAX + 1))
+        {
+            for (int i = 0; i < BATCH_SIZE; i++)
+            {
+                rte_mbuf_refcnt_set(sbufs[i], UINT16_MAX);
+            }
         }
     }
 }
