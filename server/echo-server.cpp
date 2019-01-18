@@ -94,7 +94,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
         //this is done by ensuring two
         //non-full consec recv calls exist. and we extract the jitter.
 
-        if (now.tv_sec - start.tv_sec > 20)
+        if (now.tv_sec - start.tv_sec > 200)
         {
             break;
         }
