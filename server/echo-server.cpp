@@ -180,7 +180,7 @@ int main(int argc, char **argv)
     ap.addArgument("--az", 1, true);
     ap.addArgument("--samples", 1, false);
     ap.addArgument("--benchmark", 1, false);
-    ap.addArgument("--output", 1, false);
+    ap.addArgument("--output", 1, true);
     ap.parse(argc, (const char **)argv);
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
     std::vector<std::string> macs = ap.retrieve<std::vector<std::string>>("macs");
