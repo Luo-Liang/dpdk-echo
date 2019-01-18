@@ -52,7 +52,7 @@
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
 
-#define JITTER_TEST_RECV_BATCH_SIZE 1024
+#define JITTER_TEST_RECV_BATCH_SIZE 16384
 
 static int
 lcore_jitter(__attribute__((unused)) void *arg)
@@ -77,7 +77,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
             rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
         }
 
-        if (prevReading > 0 && prevReading != JITTER_TEST_RECV_BATCH_SIZE  && recved != 0 || true)
+        if (prevReading > 0 && prevReading != JITTER_TEST_RECV_BATCH_SIZE  && recved != 0)
         {
 
             int diff = (now.tv_sec - prev.tv_sec) * 1000000 + (now.tv_usec - prev.tv_usec);
