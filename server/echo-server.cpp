@@ -80,7 +80,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
         if (prevReading > 0 && prevReading != JITTER_TEST_RECV_BATCH_SIZE  && recved != 0)
         {
 
-            int diff = (now.tv_sec - prev.tv_sec) * 1000000 + (now.tv_usec - prev.tv_usec);
+            long diff = (now.tv_sec - prev.tv_sec) * 1000000L + (now.tv_usec - prev.tv_usec);
             myarg->samples.push_back(diff);
             //printf("recved = %d. diff= %d\n", recved, diff);
         }
