@@ -77,7 +77,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
             rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
         }
 
-        if (prevReading > 0 && prevReading != JITTER_TEST_RECV_BATCH_SIZE  && recved != 0)
+        if (prevReading > 0 && prevReading != JITTER_TEST_RECV_BATCH_SIZE  && recved != 0 || true)
         {
 
             int diff = (now.tv_sec - prev.tv_sec) * 1000000 + (now.tv_usec - prev.tv_usec);
