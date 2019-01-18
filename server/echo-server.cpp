@@ -75,12 +75,13 @@ lcore_jitter(__attribute__((unused)) void *arg)
             rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
         }
 
-        if (prevReading != -1 && prevReading != BATCH_SIZE && recved != BATCH_SIZE)
+        if (prevReading != -1 && prevReading != BATCH_SIZE && recved != BATCH_SIZE && recved != 0)
         {
 
             int diff = (now.tv_sec - prev.tv_sec) * 1000000 + (now.tv_usec - prev.tv_usec);
             myarg->samples.push_back(diff);
         }
+        printf("recv burst size = %d\n", recved);
         //i need to measure.
         //i have to hope my core loops faster than recver.
         //this is done by ensuring two
