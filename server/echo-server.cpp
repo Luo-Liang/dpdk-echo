@@ -93,10 +93,10 @@ lcore_jitter(__attribute__((unused)) void *arg)
             //p;
         }
 
-        //for(int i = 0 ; i < recved; i++)
-        //{
-        //    rte_pktmbuf_free(bufs[i]);
-        //}
+        for(int i = 0 ; i < recved; i++)
+        {
+            rte_pktmbuf_free(bufs[i]);
+        }
 
         //printf("recv burst size = %d\n", recved);
         //i need to measure.
