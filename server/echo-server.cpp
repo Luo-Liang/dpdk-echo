@@ -85,7 +85,11 @@ lcore_jitter(__attribute__((unused)) void *arg)
             {
                 myarg->samples.push_back(diff);
             }
-            //printf("recved = %d. diff= %d\n", recved, diff);
+            else
+            {
+                printf("recved = %d. diff= %llu\n", recved, diff)
+            }
+            //p;
         }
 
         //for(int i = 0 ; i < recved; i++)
