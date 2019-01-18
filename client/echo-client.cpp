@@ -142,7 +142,59 @@ int ProbeSelfLatency(void *arg)
         }
     }
 
-    return (elapsed / PROBE_COUNT);
+    return 2 * (elapsed / PROBE_COUNT);
+}
+
+static int
+lcore_jitter(void *args)
+{
+    auto myarg = (struct lcore_args *)args;
+    auto queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
+    //one port probably needs to be touched by multiple procs in real app.
+    auto pool = myarg->pool;
+    //phase = myarg->phase;
+    //bsz = BATCH_SIZE;
+    if (myarg->associatedPorts.size() == 0)
+    {
+        printf("Thread %d has finished executing.\n", myarg->tid);
+        return 0;
+    }
+
+    if (myarg->associatedPorts.size() != 1)
+    {
+        fprintf(stderr, "jitter only works for 1 port");
+        assert(false);
+    }
+
+    //now, try to burst.
+    rte_mbuf *sbufs[BATCH_SIZE];
+    auto port = 0;
+
+    for (int i = 0; i < BATCH_SIZE; i++)
+    {
+        auto pBuf = rte_pktmbuf_alloc(pool);
+        if (pBuf == NULL)
+        {
+            rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
+        }
+        rte_mbuf_refcnt_set(pBuf, myarg->counter);
+        auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
+        pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->dst, myarg->type, queue, myarg->AzureSupport);
+        pkt_set_attribute(pBuf, myarg->AzureSupport);
+        sbufs[i] = pBuf;
+    }
+    timeval start, end;
+    uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
+    int consecTimeouts = 0;
+    while (myarg->counter > 0)
+    {
+        if (BATCH_SIZE != rte_eth_tx_burst(port, queue, sbufs, BATCH_SIZE))
+        {
+            rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
+        }
+        myarg->counter -= BATCH_SIZE;
+
+    }
 }
 
 static int
@@ -386,48 +438,7 @@ int main(int argc, char **argv)
     printf("All threads have finished executing.\n");
 
     /* print status */
-    if (ap.count("output") > 0)
-    {
-        if (ap.count("sid") == 0 || ap.count("did") == 0)
-        {
-            rte_exit(EXIT_FAILURE, "if output is specified, sid and did must also be specified");
-        }
-        auto file = ap.retrieve<std::string>("output");
-        std::string appHeader("BENCHMARK:DPDK_ECHO;SELF_TEST_OPTION:FALSE;DIMENSION:${totalClients};VALUE:AVG;PREPROCESS:0");
-        std::ofstream ofile;
-        ofile.open(file);
-        for (int i = 0; i < threadnum; i++)
-        {
-            for (auto t : largs[i].samples)
-            {
-                //from, to, ping result
-                ofile << ap.retrieve<std::string>("sid") << ","
-                      << ap.retrieve<std::string>("did") << ","
-                      << t
-                      << std::endl;
-            }
-        }
-        ofile.close();
-        printf("file written to %s\r\n", file.c_str());
-    }
-    else
-    {
-        //compute min, max latency.
-        uint64_t min = UINT64_MAX, max = 0, avg = 0;
-        size_t cntr = 0;
-        for (int i = 0; i < threadnum; i++)
-        {
-            for (auto t : largs[i].samples)
-            {
-                //from, to, ping result
-                min = std::min(min, t);
-                max = std::max(max, t);
-                avg += t;
-            }
-            cntr += largs[i].samples.size();
-        }
-        printf("MIN = %d, MAX = %d, AVG = %d\n", (int)min, (int)max, (int)(avg / cntr));
-    }
+    EmitFile(ap, largs, threadnum);
     free(largs);
     return 0;
 }

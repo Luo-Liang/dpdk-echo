@@ -53,6 +53,50 @@
 #include "../shared/argparse.h"
 
 static int
+lcore_jitter(__attribute__((unused)) void *arg)
+{
+    auto myarg = (struct lcore_args *)arg;
+    auto queue = 0;
+    int bsz = BATCH_SIZE;
+    printf("Server worker %" PRIu8 " started\n", myarg->tid);
+    int drops[BATCH_SIZE];
+    rte_mbuf *bufs[BATCH_SIZE];
+    timeval now, prev, start;
+    gettimeofday(&start, NULL);
+    int prevReading = -1;
+    assert(myarg->associatedPorts.size() == 1);
+    int port = myarg->associatedPorts[0];
+    while (myarg->counter > 0)
+    {
+        int recved = 0;
+        gettimeofday(&now, NULL);
+        if ((recved = rte_eth_rx_burst(port, queue, bufs, bsz)) < 0)
+        {
+            rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
+        }
+
+        if (prevReading != -1 && prevReading != BATCH_SIZE && recved != BATCH_SIZE)
+        {
+
+            int diff = (now.tv_sec - prev.tv_sec) * 1000000 + (now.tv_usec - prev.tv_usec);
+            myarg->samples.push_back(diff);
+        }
+        //i need to measure.
+        //i have to hope my core loops faster than recver.
+        //this is done by ensuring two
+        //non-full consec recv calls exist. and we extract the jitter.
+
+        if (now.tv_sec - start.tv_sec > 5)
+        {
+            break;
+        }
+        myarg->counter -= recved;
+        prevReading = recved;
+        prev = now;
+    }
+}
+
+static int
 lcore_execute(__attribute__((unused)) void *arg)
 {
     int n;
@@ -61,11 +105,10 @@ lcore_execute(__attribute__((unused)) void *arg)
     struct rte_mbuf *bufs[BATCH_SIZE];
     struct rte_mbuf *response[BATCH_SIZE];
     int drops[BATCH_SIZE];
-    uint16_t bsz, i, j, port, nb_ports;
+    uint16_t bsz, i, j, port;
     myarg = (struct lcore_args *)arg;
     queue = 0; //myarg->tid;
     bsz = BATCH_SIZE;
-    nb_ports = rte_eth_dev_count_avail();
 
     printf("Server worker %" PRIu8 " started\n", myarg->tid);
     while (myarg->counter > 0)
@@ -136,6 +179,8 @@ int main(int argc, char **argv)
     ap.addArgument("--blocked", true);
     ap.addArgument("--az", 1, true);
     ap.addArgument("--samples", 1, false);
+    ap.addArgument("--benchmark", 1, false);
+    ap.addArgument("--output", 1, false);
     ap.parse(argc, (const char **)argv);
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
     std::vector<std::string> macs = ap.retrieve<std::vector<std::string>>("macs");
@@ -145,7 +190,7 @@ int main(int argc, char **argv)
         blockedIfs = ap.retrieve<std::vector<std::string>>("blocked");
     }
     macs = ap.retrieve<std::vector<std::string>>("macs");
-    if(ips.size() != macs.size())
+    if (ips.size() != macs.size())
     {
         rte_exit(EXIT_FAILURE, "specify same number of ips and macs.");
     }
@@ -189,17 +234,27 @@ int main(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "ports_init failed with %s", rte_strerror(rte_errno));
     }
 
-    /* call lcore_execute() on every slave lcore */
-    RTE_LCORE_FOREACH_SLAVE(lcore_id)
+    if (ap.retrieve<std::string>("benchmark") == "jitter")
     {
-        rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]),
-                              lcore_id);
+        /* call lcore_execute() on every slave lcore */
+        RTE_LCORE_FOREACH_SLAVE(lcore_id)
+        {
+            rte_eal_remote_launch(lcore_jitter, (void *)(&largs[lCore2Idx.at(lcore_id)]), lcore_id);
+        }
+    }
+    else
+    {
+        //run
+        RTE_LCORE_FOREACH_SLAVE(lcore_id)
+        {
+            rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]), lcore_id);
+        }
     }
 
     printf("Master core performs maintainence\n");
     fflush(stdout);
     rte_eal_mp_wait_lcore();
-
+    EmitFile(ap, largs, threadnum);
     free(largs);
     return 0;
 }

@@ -210,3 +210,50 @@ void CoreIdxMap(std::unordered_map<int, int> &lCore2Idx, std::unordered_map<int,
         }
     }
 }
+
+void EmitFile(ArgumentParser &ap,
+              lcore_args *largs,
+              int threadnum)
+{
+    if (ap.count("output") > 0)
+    {
+        if (ap.count("sid") == 0 || ap.count("did") == 0)
+        {
+            rte_exit(EXIT_FAILURE, "if output is specified, sid and did must also be specified");
+        }
+        auto file = ap.retrieve<std::string>("output");
+        std::ofstream ofile;
+        ofile.open(file);
+        for (int i = 0; i < threadnum; i++)
+        {
+            for (auto t : largs[i].samples)
+            {
+                //from, to, ping result
+                ofile << ap.retrieve<std::string>("sid") << ","
+                      << ap.retrieve<std::string>("did") << ","
+                      << t
+                      << std::endl;
+            }
+        }
+        ofile.close();
+        printf("file written to %s\r\n", file.c_str());
+    }
+    else
+    {
+        //compute min, max latency.
+        uint64_t min = UINT64_MAX, max = 0, avg = 0;
+        size_t cntr = 0;
+        for (int i = 0; i < threadnum; i++)
+        {
+            for (auto t : largs[i].samples)
+            {
+                //from, to, ping result
+                min = std::min(min, t);
+                max = std::max(max, t);
+                avg += t;
+            }
+            cntr += largs[i].samples.size();
+        }
+        printf("MIN = %d, MAX = %d, AVG = %d\n", (int)min, (int)max, (int)(avg / cntr));
+    }
+}

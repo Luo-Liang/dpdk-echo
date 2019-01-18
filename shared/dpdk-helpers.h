@@ -18,6 +18,9 @@
 #include <assert.h>
 #include <algorithm>
 #include <unordered_map>
+#include "argparse.h"
+#include <iostream>
+#include <fstream>
 
 #define NUM_MBUFS 8191
 #define MBUF_CACHE_SIZE 250
@@ -67,4 +70,7 @@ int ports_init(struct lcore_args *largs,
 void CoreIdxMap(std::unordered_map<int, int> &lCore2Idx,
                 std::unordered_map<int, int> &idx2LCoreId);
 
+void EmitFile(ArgumentParser &ap,
+              lcore_args *largs,
+              int threadnum);
 #endif /* _CLUSTER_CFG_H */
