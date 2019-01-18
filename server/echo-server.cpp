@@ -68,7 +68,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
     int prevReading = -1;
     assert(myarg->associatedPorts.size() == 1);
     int port = myarg->associatedPorts[0];
-    while (myarg->counter > 0)
+    while (true)
     {
         int recved = 0;
         gettimeofday(&now, NULL);
@@ -96,7 +96,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
         //this is done by ensuring two
         //non-full consec recv calls exist. and we extract the jitter.
 
-        if (now.tv_sec - start.tv_sec > 200)
+        if (now.tv_sec - start.tv_sec > 10)
         {
             break;
         }

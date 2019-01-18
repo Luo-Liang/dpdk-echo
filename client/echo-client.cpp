@@ -183,15 +183,21 @@ lcore_jitter(void *args)
         pkt_set_attribute(pBuf, myarg->AzureSupport);
         sbufs[i] = pBuf;
     }
-    while (myarg->counter > 0)
+    timeval start, now;
+    gettimeofday(&start, NULL);
+    while (true)
     {
         int txed = 0;
         if (0 > (txed = rte_eth_tx_burst(port, queue, sbufs, BATCH_SIZE)))
         {
             rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
         }
-        printf("remaining pkts = %d\n", myarg->counter);
-        myarg->counter -= txed;
+        //printf("remaining pkts = %d\n", myarg->counter);
+        gettimeofday(&now, NULL);
+        if (now.tv_sec - start.tv_sec > 10)
+        {
+            break;
+        }
     }
 }
 
@@ -430,7 +436,7 @@ int main(int argc, char **argv)
         {
             rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]),
                                   lcore_id);
-        }        
+        }
     }
     //sleep(mysettings.run_time);
 
