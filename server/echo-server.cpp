@@ -68,6 +68,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
     int prevReading = -1;
     assert(myarg->associatedPorts.size() == 1);
     int port = myarg->associatedPorts[0];
+    myarg->counter = 0;
     while (true)
     {
         int recved = 0;
@@ -107,10 +108,11 @@ lcore_jitter(__attribute__((unused)) void *arg)
         {
             break;
         }
-        //myarg->counter -= recved;
+        myarg->counter += recved;
         prevReading = recved;
         prev = now;
     }
+    printf("total recved = %llu\n", myarg->counter);
 }
 
 static int
