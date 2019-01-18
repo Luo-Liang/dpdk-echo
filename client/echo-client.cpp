@@ -168,7 +168,7 @@ lcore_jitter(void *args)
 
     //now, try to burst.
     rte_mbuf *sbufs[BATCH_SIZE];
-    auto port = 0;
+    auto port = myarg->associatedPorts[0];
 
     for (int i = 0; i < BATCH_SIZE; i++)
     {
