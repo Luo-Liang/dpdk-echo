@@ -306,7 +306,7 @@ lcore_execute(void *arg)
 
                 //what if the packet is lost??
                 long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-                if (timeDelta > 1000)
+                if (timeDelta > 10000)
                 {
                     //1 sec is long enough for us to tell the packet is lost.
                     found = true;
