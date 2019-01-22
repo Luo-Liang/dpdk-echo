@@ -38,10 +38,10 @@ int ports_init(struct lcore_args *largs,
     std::vector<int> portids;
     //now assign port to cores.
     assert(nb_ports > 0);
-    if (nb_ports > 1)
-    {
-        printf("Currently only 1 port is supported. setting nb_ports to 1\n");
-    }
+    //if (nb_ports > 1)
+    //{
+    //    printf("Currently only 1 port is supported. setting nb_ports to 1\n");
+    //}
 
     //nb_ports = 1;
     for (int i = 0; i < nb_ports; i++)
