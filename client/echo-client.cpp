@@ -296,6 +296,10 @@ lcore_execute(void *arg)
                         elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
                                   (end.tv_usec - start.tv_usec);
                         myarg->samples.push_back((long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
+			if(myarg->verbose)
+			  {
+			    printf("echo response. %d us\n", (long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
+			  }
                     }
                 }
 
@@ -371,6 +375,7 @@ int main(int argc, char **argv)
     //enable Windows Azure support
     ap.addArgument("--interval",1, true);
     ap.addArgument("--az", 1, true);
+    ap.addArgument("--verbose",1,true);
 
     ap.parse(argc, (const char **)argv);
 
@@ -414,6 +419,12 @@ int main(int argc, char **argv)
     {
         MSFTAZ = false;
     }
+
+    bool verbose = false;
+    if(ap.count("verbose") > 0)
+      {
+	verbose = true;
+      }
     for (int idx = 0; idx < threadnum; idx++)
     {
         int CORE = Idx2LCore.at(idx);
@@ -425,6 +436,7 @@ int main(int argc, char **argv)
         largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
         largs[idx].AzureSupport = MSFTAZ;
 	largs[idx].interval = interval;
+	largs[idx].verbose = verbose;
     }
     std::vector<std::string> blockedIFs;
     if (ap.count("blocked") > 0)

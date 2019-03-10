@@ -58,7 +58,8 @@ struct lcore_args
     uint32_t CoreID;
     bool master;
     bool AzureSupport;
-  int interval;
+    int interval;
+  bool verbose;
 }; //__attribute__((packed));
 
 int ports_init(struct lcore_args *largs,
