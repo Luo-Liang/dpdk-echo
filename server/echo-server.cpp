@@ -274,7 +274,7 @@ int main(int argc, char **argv)
     printf("Master core performs maintainence\n");
     fflush(stdout);
     rte_eal_mp_wait_lcore();
-    EmitFile(ap, largs, threadnum);
+    //EmitFile(ap, largs, threadnum);
     free(largs);
     return 0;
 }
