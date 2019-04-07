@@ -16,8 +16,8 @@
 #define ETHER_HEADER_LEN 14
 #define IP_HEADER_LEN 20
 #define UDP_HEADER_LEN 8
-#define UDP_SRC_PORT 1234
-#define UDP_DES_PORT 5678
+#define UDP_SRC_PORT 12344
+#define UDP_DES_PORT 12345
 
 void MACFromString(std::string str, uint8_t Bytes[6])
 {
