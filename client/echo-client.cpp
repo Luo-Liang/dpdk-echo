@@ -219,7 +219,7 @@ lcore_execute(void *arg)
     //volatile enum benchmark_phase *phase;
     //receive buffers.
     struct rte_mbuf *rbufs[BATCH_SIZE];
-    struct timeval start, end;
+    struct timeval start, end, now;
     uint64_t elapsed;
 
     myarg = (struct lcore_args *)arg;
@@ -296,6 +296,10 @@ lcore_execute(void *arg)
                         elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
                                   (end.tv_usec - start.tv_usec);
                         myarg->samples.push_back((long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
+			if(myarg->verbose)
+			  {
+			    printf("echo response. %d us\n", (long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
+			  }
                     }
                 }
 
@@ -322,6 +326,13 @@ lcore_execute(void *arg)
                 //but what about server is turned off, because it thinks it sent the last message?
                 //but that last messagfe is lost? i cannot resend forever.
             }
+
+	    gettimeofday(&now, NULL);
+	    while((now.tv_sec - start.tv_sec) * 1000000 + now.tv_usec - start.tv_usec < myarg->interval)
+	      {
+		gettimeofday(&now, NULL);
+	      }
+	    
         }
     }
     printf("Thread %d has finished executing.\n", myarg->tid);
@@ -362,7 +373,9 @@ int main(int argc, char **argv)
     ap.addArgument("--output", 1, true);
     ap.addArgument("--benchmark", 1, false);
     //enable Windows Azure support
+    ap.addArgument("--interval",1, true);
     ap.addArgument("--az", 1, true);
+    ap.addArgument("--verbose",1,true);
 
     ap.parse(argc, (const char **)argv);
 
@@ -382,6 +395,13 @@ int main(int argc, char **argv)
     {
         rte_exit(EXIT_FAILURE, "what is %s?", ap.retrieve<std::string>("samples").c_str());
     }
+
+    int interval = 0;
+    if(ap.count("interval") > 0)
+    {
+      interval = atoi(ap.retrieve<std::string>("interval").c_str());
+    }
+
     InitializePayloadConstants();
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
@@ -399,6 +419,12 @@ int main(int argc, char **argv)
     {
         MSFTAZ = false;
     }
+
+    bool verbose = false;
+    if(ap.count("verbose") > 0)
+      {
+	verbose = true;
+      }
     for (int idx = 0; idx < threadnum; idx++)
     {
         int CORE = Idx2LCore.at(idx);
@@ -409,6 +435,8 @@ int main(int argc, char **argv)
         largs[idx].counter = samples;
         largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
         largs[idx].AzureSupport = MSFTAZ;
+	largs[idx].interval = interval;
+	largs[idx].verbose = verbose;
     }
     std::vector<std::string> blockedIFs;
     if (ap.count("blocked") > 0)
