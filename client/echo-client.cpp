@@ -53,6 +53,8 @@
 #include <unordered_map>
 #include <iostream>
 #include <fstream>
+#include <unistd.h>
+
 #include "../shared/dpdk-helpers.h"
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
@@ -67,7 +69,7 @@
 
 uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
 std::unordered_map<uint32_t, uint32_t> lCore2Idx;
-
+const int MAX_INTERVAL=1000;
 /*static inline void 
 pkt_dump(struct rte_mbuf *buf)
 {
@@ -334,6 +336,7 @@ lcore_execute(void *arg)
 	      }
 	    
         }
+	usleep(rand() % MAX_INTERVAL);
     }
     printf("Thread %d has finished executing.\n", myarg->tid);
     return 0;
