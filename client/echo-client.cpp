@@ -379,6 +379,7 @@ int main(int argc, char **argv)
     ap.addArgument("--interval",1, true);
     ap.addArgument("--az", 1, true);
     ap.addArgument("--verbose",1,true);
+    ap.addArgument("--payload", 1, true);
 
     ap.parse(argc, (const char **)argv);
 
@@ -404,8 +405,15 @@ int main(int argc, char **argv)
     {
       interval = atoi(ap.retrieve<std::string>("interval").c_str());
     }
+    
+    int payloadLen = 5;
 
-    InitializePayloadConstants();
+    if(ap.count("payload") > 0 )
+    {
+      payloadLen = atoi(ap.retrieve<std::string>("payload").c_str());
+    }
+
+    InitializePayloadConstants(payloadLen);
     /* Initialize NIC ports */
     threadnum = rte_lcore_count();
     if (threadnum < 2)
