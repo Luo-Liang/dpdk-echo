@@ -58,14 +58,14 @@ struct common_hdr
 } __attribute__((packed));
 
 /* Application Headers */
-#define ECHO_PAYLOAD_LEN 5
+//#define ECHO_PAYLOAD_LEN 5
 //int ECHO_PAYLOAD_LEN = 0;
 std::string contents;
-
-void InitializePayloadConstants()
+int ECHO_PAYLOAD_LEN = 5;
+void InitializePayloadConstants(int len)
 {
-    if (contents.size() != 0)
-        return;
+    assert(contents.size() == 0);
+    ECHO_PAYLOAD_LEN = len;
     std::string templatedStr = "PLINK TECHNOLOGIES";
     for (int i = 0; i < ECHO_PAYLOAD_LEN; i++)
     {
@@ -74,10 +74,11 @@ void InitializePayloadConstants()
     //ECHO_PAYLOAD_LEN = pLen;
 }
 
+#define ECHO_PAYLOAD_MAXLEN 2000
 struct echo_hdr
 {
     struct common_hdr pro_hdr;
-    char payload[ECHO_PAYLOAD_LEN];
+    char payload[ECHO_PAYLOAD_MAXLEN];
 } __attribute__((packed));
 
 uint16_t
