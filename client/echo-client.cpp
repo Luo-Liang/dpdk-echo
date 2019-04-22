@@ -336,7 +336,7 @@ lcore_execute(void *arg)
 	      }
 	    
         }
-	usleep(rand() % MAX_INTERVAL);
+	//usleep(rand() % MAX_INTERVAL);
     }
     printf("Thread %d has finished executing.\n", myarg->tid);
     return 0;
