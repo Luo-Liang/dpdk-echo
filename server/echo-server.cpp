@@ -191,7 +191,6 @@ int main(int argc, char **argv)
 
     /* Initialize application args */
 
-    InitializePayloadConstants();
 
     ArgumentParser ap;
     ap.addArgument("--ips", '+', false);
@@ -201,7 +200,18 @@ int main(int argc, char **argv)
     ap.addArgument("--samples", 1, false);
     ap.addArgument("--benchmark", 1, false);
     ap.addArgument("--output", 1, true);
+    ap.addArgument("--payload", 1, true);
     ap.parse(argc, (const char **)argv);
+
+    int payloadLen = 5;
+    if(ap.count("payload") > 0)
+    {
+      payloadLen = atoi(ap.retrieve<std::string>("payload").c_str());
+    }	
+
+    InitializePayloadConstants(payloadLen);
+
+    
     std::vector<std::string> ips = ap.retrieve<std::vector<std::string>>("ips");
     std::vector<std::string> macs = ap.retrieve<std::vector<std::string>>("macs");
     std::vector<std::string> blockedIfs;
@@ -274,7 +284,7 @@ int main(int argc, char **argv)
     printf("Master core performs maintainence\n");
     fflush(stdout);
     rte_eal_mp_wait_lcore();
-    EmitFile(ap, largs, threadnum);
+    //EmitFile(ap, largs, threadnum);
     free(largs);
     return 0;
 }
