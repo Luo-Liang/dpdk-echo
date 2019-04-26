@@ -311,8 +311,9 @@ lcore_execute(void *arg)
                 }
 
                 //what if the packet is lost??
+		const int TIME_OUT=2000;
                 long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-                if (timeDelta > 1000)
+                if (timeDelta > TIME_OUT)
                 {
                     //1ms is long enough for us to tell the packet is lost.
                     found = true;
@@ -321,6 +322,7 @@ lcore_execute(void *arg)
                     //if (myarg->samples.size() == myarg->counter - 1)
                     //{
                     myarg->counter--;
+		    myarg->samples.push_back(TIME_OUT);
                     //choosing median. penalizing drops.
                     //myarg->samples.push_back(1000);
                     //}
