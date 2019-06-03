@@ -201,6 +201,7 @@ int main(int argc, char **argv)
     ap.addArgument("--benchmark", 1, false);
     ap.addArgument("--output", 1, true);
     ap.addArgument("--payload", 1, true);
+    ap.addArgument("--interval", 1, true);
     ap.parse(argc, (const char **)argv);
 
     int payloadLen = 5;
