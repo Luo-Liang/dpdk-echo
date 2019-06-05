@@ -241,7 +241,11 @@ lcore_execute(void *arg)
         assert(false);
     }
 
-    int selfLatency = ProbeSelfLatency(arg);
+    int selfLatency = 0;
+    if(myarg->selfProbe)
+      {
+	selfLatency = ProbeSelfLatency(arg);
+      }
     printf("Thread %d self probe latency = %d.\n", myarg->tid, selfLatency);
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (int i = 0; i < myarg->associatedPorts.size(); i++)
@@ -382,6 +386,7 @@ int main(int argc, char **argv)
     ap.addArgument("--az", 1, true);
     ap.addArgument("--verbose",1,true);
     ap.addArgument("--payload", 1, true);
+    ap.addArgument("--noSelfProbe", 1, true);
 
     ap.parse(argc, (const char **)argv);
 
@@ -433,6 +438,12 @@ int main(int argc, char **argv)
         MSFTAZ = false;
     }
 
+    bool noSelfProbe = false;
+    if(ap.count("noSelfProbe") > 0)
+      {
+	noSelfProbe = true;
+      }
+
     bool verbose = false;
     if(ap.count("verbose") > 0)
       {
@@ -450,6 +461,7 @@ int main(int argc, char **argv)
         largs[idx].AzureSupport = MSFTAZ;
 	largs[idx].interval = interval;
 	largs[idx].verbose = verbose;
+	largs[idx].selfProbe = !noSelfProbe;
     }
     std::vector<std::string> blockedIFs;
     if (ap.count("blocked") > 0)

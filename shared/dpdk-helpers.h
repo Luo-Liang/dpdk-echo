@@ -59,7 +59,8 @@ struct lcore_args
     bool master;
     bool AzureSupport;
     int interval;
-  bool verbose;
+    bool verbose;
+    bool selfProbe;
 }; //__attribute__((packed));
 
 int ports_init(struct lcore_args *largs,
