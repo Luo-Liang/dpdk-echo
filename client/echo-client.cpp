@@ -315,7 +315,7 @@ lcore_execute(void *arg)
                 }
 
                 //what if the packet is lost??
-		const int TIME_OUT=20000;
+		const int TIME_OUT=2000;
                 long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
                 if (timeDelta > TIME_OUT)
                 {
