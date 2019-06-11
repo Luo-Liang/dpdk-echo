@@ -326,7 +326,7 @@ lcore_execute(void *arg)
                     //if (myarg->samples.size() == myarg->counter - 1)
                     //{
                     myarg->counter--;
-		    myarg->samples.push_back(TIME_OUT);
+		    //myarg->samples.push_back(TIME_OUT);
                     //choosing median. penalizing drops.
                     //myarg->samples.push_back(1000);
                     //}
