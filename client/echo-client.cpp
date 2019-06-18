@@ -245,8 +245,8 @@ lcore_execute(void *arg)
     if(myarg->selfProbe)
       {
 	selfLatency = ProbeSelfLatency(arg);
+	printf("Thread %d self probe latency = %d.\n", myarg->tid, selfLatency);    
       }
-    printf("Thread %d self probe latency = %d.\n", myarg->tid, selfLatency);
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (int i = 0; i < myarg->associatedPorts.size(); i++)
     {
@@ -267,7 +267,7 @@ lcore_execute(void *arg)
 
     uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
     int consecTimeouts = 0;
-    while (myarg->samples.size() < myarg->counter && consecTimeouts < 1000)
+    while (myarg->samples.size() < myarg->counter && consecTimeouts < 10)
     {
         for (auto port : myarg->associatedPorts)
         {
@@ -315,7 +315,7 @@ lcore_execute(void *arg)
                 }
 
                 //what if the packet is lost??
-		const int TIME_OUT=2000;
+		const int TIME_OUT=2000000;
                 long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
                 if (timeDelta > TIME_OUT)
                 {
