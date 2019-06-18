@@ -78,11 +78,10 @@ pkt_dump(struct rte_mbuf *buf)
     rte_pktmbuf_dump(stdout, buf, rte_pktmbuf_pkt_len(buf));
 }*/
 
-
-size_t getDuration(std::chrono::time_point<std::chrono::steady_clock> &finish, std::chrono::time_point<std::chrono::steady_clock> &start)
-{
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count();
-}
+// size_t getDuration(std::chrono::time_point<std::chrono::steady_clock> &finish, std::chrono::time_point<std::chrono::steady_clock> &start)
+// {
+//     return std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count();
+// }
 
 int ProbeSelfLatency(void *arg)
 {
@@ -219,7 +218,6 @@ lcore_jitter(void *args)
     }
 }
 
-
 static int
 lcore_execute(void *arg)
 {
@@ -255,7 +253,7 @@ lcore_execute(void *arg)
     if (myarg->selfProbe)
     {
         selfLatency = ProbeSelfLatency(arg);
-        printf("Thread %d self probe latency = %d.\n", myarg->tid, selfLatency);
+        printf("Thread %d self probe latency = %d.\n", myarg->tid, (uint32_t)selfLatency);
     }
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (int i = 0; i < myarg->associatedPorts.size(); i++)
@@ -308,11 +306,11 @@ lcore_execute(void *arg)
                         consecTimeouts = 0;
                         found = true;
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
-                        elapsed = getDuration(end, start);
-                        myarg->samples.push_back((long)elapsed >= (long)selfLatency ? elapsed - selfLatency : elapsed);
+                        elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
+                        myarg->samples.push_back(elapsed >= selfLatency ? elapsed - selfLatency : elapsed);
                         if (myarg->verbose)
                         {
-                            printf("echo response. %d us\n", (long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
+                            printf("echo response. %d us\n", (uint32_t)(elapsed >= selfLatency ? elapsed - selfLatency : elapsed));
                         }
                     }
                 }
@@ -325,7 +323,7 @@ lcore_execute(void *arg)
                 //what if the packet is lost??
                 //2s.
                 const size_t TIME_OUT = 2000000000ULL;
-                size_t timeDelta = getDuration(end, start);
+                size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start); // getDuration(end, start);
                 if (timeDelta > TIME_OUT)
                 {
                     //1ms is long enough for us to tell the packet is lost.
@@ -345,7 +343,7 @@ lcore_execute(void *arg)
             }
 
             now = std::chrono::high_resolution_clock::now();
-            while (getDuration(now, start) < myarg->interval)
+            while (std::chrono::duration_cast<std::chrono::nanoseconds>(now - start) < myarg->interval)
             {
                 now = std::chrono::high_resolution_clock::now();
             }

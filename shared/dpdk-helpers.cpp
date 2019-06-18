@@ -254,6 +254,6 @@ void EmitFile(ArgumentParser &ap,
             }
             cntr += largs[i].samples.size();
         }
-        printf("MIN = %d, MAX = %d, AVG = %d. CNT = %d\n", (int)min, (int)max, (int)(avg / cntr), cntr);
+        printf("MIN = %d, MAX = %d, AVG = %d. CNT = %d\n", (int)min, (int)max, (int)(avg / cntr), (int)cntr);
     }
 }

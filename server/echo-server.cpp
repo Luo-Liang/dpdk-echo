@@ -113,7 +113,7 @@ lcore_jitter(__attribute__((unused)) void *arg)
         prevReading = recved;
         prev = now;
     }
-    printf("total recved = %llu\n", myarg->counter);
+    printf("total recved = %llu\n", (size_t)myarg->counter);
 }
 
 static int
