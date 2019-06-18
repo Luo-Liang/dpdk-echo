@@ -54,6 +54,7 @@
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
+#include <chrono>
 
 #include "../shared/dpdk-helpers.h"
 #include "../shared/pkt-utils.h"
@@ -69,13 +70,19 @@
 
 uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
 std::unordered_map<uint32_t, uint32_t> lCore2Idx;
-const int MAX_INTERVAL=1000;
+const int MAX_INTERVAL = 1000;
 /*static inline void 
 pkt_dump(struct rte_mbuf *buf)
 {
     printf("Packet info:\n");
     rte_pktmbuf_dump(stdout, buf, rte_pktmbuf_pkt_len(buf));
 }*/
+
+
+size_t getDuration(std::chrono::time_point<std::chrono::steady_clock> &finish, std::chrono::time_point<std::chrono::steady_clock> &start)
+{
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count();
+}
 
 int ProbeSelfLatency(void *arg)
 {
@@ -104,11 +111,11 @@ int ProbeSelfLatency(void *arg)
     uint32_t selfProbeIP = ip_2_uint32(myarg->srcs.at(0).ip);
     while (selfProbeCount-- > 0)
     {
+        gettimeofday(&start, NULL);
         if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
         {
             rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
         }
-        gettimeofday(&start, NULL);
         bool found = false;
         while (found == false)
         {
@@ -143,8 +150,8 @@ int ProbeSelfLatency(void *arg)
             }
         }
     }
-
-    return 2 * (elapsed / PROBE_COUNT);
+    //these are measured in microseconds.
+    return 2 * 1000 * (elapsed / PROBE_COUNT);
 }
 
 static int
@@ -212,6 +219,7 @@ lcore_jitter(void *args)
     }
 }
 
+
 static int
 lcore_execute(void *arg)
 {
@@ -221,7 +229,9 @@ lcore_execute(void *arg)
     //volatile enum benchmark_phase *phase;
     //receive buffers.
     struct rte_mbuf *rbufs[BATCH_SIZE];
-    struct timeval start, end, now;
+    auto start = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::high_resolution_clock::now();
+    auto now = std::chrono::high_resolution_clock::now();
     uint64_t elapsed;
 
     myarg = (struct lcore_args *)arg;
@@ -242,11 +252,11 @@ lcore_execute(void *arg)
     }
 
     int selfLatency = 0;
-    if(myarg->selfProbe)
-      {
-	selfLatency = ProbeSelfLatency(arg);
-	printf("Thread %d self probe latency = %d.\n", myarg->tid, selfLatency);    
-      }
+    if (myarg->selfProbe)
+    {
+        selfLatency = ProbeSelfLatency(arg);
+        printf("Thread %d self probe latency = %d.\n", myarg->tid, selfLatency);
+    }
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (int i = 0; i < myarg->associatedPorts.size(); i++)
     {
@@ -276,7 +286,7 @@ lcore_execute(void *arg)
             /* Prepare and send requests */
             auto pBuf = bufPorts[port];
             //pkt_dump(bufs[i]);
-            gettimeofday(&start, NULL);		
+            start = std::chrono::high_resolution_clock::now();
             if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
             {
                 rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
@@ -290,8 +300,7 @@ lcore_execute(void *arg)
                 {
                     rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
                 }
-
-                gettimeofday(&end, NULL);
+                end = std::chrono::high_resolution_clock::now();
                 for (int i = 0; i < recv; i++)
                 {
                     if (pkt_client_process(rbufs[i], myarg->type, expectedRemoteIp))
@@ -299,13 +308,12 @@ lcore_execute(void *arg)
                         consecTimeouts = 0;
                         found = true;
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
-                        elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
-                                  (end.tv_usec - start.tv_usec);
+                        elapsed = getDuration(end, start);
                         myarg->samples.push_back((long)elapsed >= (long)selfLatency ? elapsed - selfLatency : elapsed);
-			if(myarg->verbose)
-			  {
-			    printf("echo response. %d us\n", (long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
-			  }
+                        if (myarg->verbose)
+                        {
+                            printf("echo response. %d us\n", (long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
+                        }
                     }
                 }
 
@@ -315,8 +323,9 @@ lcore_execute(void *arg)
                 }
 
                 //what if the packet is lost??
-		const int TIME_OUT=2000000;
-                long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+                //2s.
+                const size_t TIME_OUT = 2000000000ULL;
+                size_t timeDelta = getDuration(end, start);
                 if (timeDelta > TIME_OUT)
                 {
                     //1ms is long enough for us to tell the packet is lost.
@@ -326,7 +335,7 @@ lcore_execute(void *arg)
                     //if (myarg->samples.size() == myarg->counter - 1)
                     //{
                     myarg->counter--;
-		    //myarg->samples.push_back(TIME_OUT);
+                    //myarg->samples.push_back(TIME_OUT);
                     //choosing median. penalizing drops.
                     //myarg->samples.push_back(1000);
                     //}
@@ -335,14 +344,13 @@ lcore_execute(void *arg)
                 //but that last messagfe is lost? i cannot resend forever.
             }
 
-	    gettimeofday(&now, NULL);
-	    while((now.tv_sec - start.tv_sec) * 1000000 + now.tv_usec - start.tv_usec < myarg->interval)
-	      {
-		gettimeofday(&now, NULL);
-	      }
-	    
+            now = std::chrono::high_resolution_clock::now();
+            while (getDuration(now, start) < myarg->interval)
+            {
+                now = std::chrono::high_resolution_clock::now();
+            }
         }
-	//usleep(rand() % MAX_INTERVAL);
+        //usleep(rand() % MAX_INTERVAL);
     }
     printf("Thread %d has finished executing.\n", myarg->tid);
     return 0;
@@ -382,9 +390,9 @@ int main(int argc, char **argv)
     ap.addArgument("--output", 1, true);
     ap.addArgument("--benchmark", 1, false);
     //enable Windows Azure support
-    ap.addArgument("--interval",1, true);
+    ap.addArgument("--interval", 1, true);
     ap.addArgument("--az", 1, true);
-    ap.addArgument("--verbose",1,true);
+    ap.addArgument("--verbose", 1, true);
     ap.addArgument("--payload", 1, true);
     ap.addArgument("--noSelfProbe", 1, true);
 
@@ -408,16 +416,16 @@ int main(int argc, char **argv)
     }
 
     int interval = 0;
-    if(ap.count("interval") > 0)
+    if (ap.count("interval") > 0)
     {
-      interval = atoi(ap.retrieve<std::string>("interval").c_str());
+        interval = atoi(ap.retrieve<std::string>("interval").c_str());
     }
-    
+
     int payloadLen = 5;
 
-    if(ap.count("payload") > 0 )
+    if (ap.count("payload") > 0)
     {
-      payloadLen = atoi(ap.retrieve<std::string>("payload").c_str());
+        payloadLen = atoi(ap.retrieve<std::string>("payload").c_str());
     }
 
     InitializePayloadConstants(payloadLen);
@@ -439,16 +447,16 @@ int main(int argc, char **argv)
     }
 
     bool noSelfProbe = false;
-    if(ap.count("noSelfProbe") > 0)
-      {
-	noSelfProbe = true;
-      }
+    if (ap.count("noSelfProbe") > 0)
+    {
+        noSelfProbe = true;
+    }
 
     bool verbose = false;
-    if(ap.count("verbose") > 0)
-      {
-	verbose = true;
-      }
+    if (ap.count("verbose") > 0)
+    {
+        verbose = true;
+    }
     for (int idx = 0; idx < threadnum; idx++)
     {
         int CORE = Idx2LCore.at(idx);
@@ -459,9 +467,9 @@ int main(int argc, char **argv)
         largs[idx].counter = samples;
         largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
         largs[idx].AzureSupport = MSFTAZ;
-	largs[idx].interval = interval;
-	largs[idx].verbose = verbose;
-	largs[idx].selfProbe = !noSelfProbe;
+        largs[idx].interval = interval;
+        largs[idx].verbose = verbose;
+        largs[idx].selfProbe = !noSelfProbe;
     }
     std::vector<std::string> blockedIFs;
     if (ap.count("blocked") > 0)
