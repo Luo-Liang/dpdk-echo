@@ -276,11 +276,11 @@ lcore_execute(void *arg)
             /* Prepare and send requests */
             auto pBuf = bufPorts[port];
             //pkt_dump(bufs[i]);
+            gettimeofday(&start, NULL);		
             if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
             {
                 rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
             }
-            gettimeofday(&start, NULL);
             /* free non-sent buffers */
             bool found = false;
             while (found == false)
