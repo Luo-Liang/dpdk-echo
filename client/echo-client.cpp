@@ -301,7 +301,7 @@ lcore_execute(void *arg)
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
                         elapsed = (end.tv_sec - start.tv_sec) * 1000000 +
                                   (end.tv_usec - start.tv_usec);
-                        myarg->samples.push_back((long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
+                        myarg->samples.push_back((long)elapsed >= (long)selfLatency ? elapsed - selfLatency : elapsed);
 			if(myarg->verbose)
 			  {
 			    printf("echo response. %d us\n", (long)elapsed - (long)selfLatency >= 0 ? elapsed - selfLatency : elapsed);
