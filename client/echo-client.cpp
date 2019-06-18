@@ -323,7 +323,7 @@ lcore_execute(void *arg)
                 //what if the packet is lost??
                 //2s.
                 const size_t TIME_OUT = 2000000000ULL;
-                size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start); // getDuration(end, start);
+                size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
                 if (timeDelta > TIME_OUT)
                 {
                     //1ms is long enough for us to tell the packet is lost.
@@ -343,7 +343,7 @@ lcore_execute(void *arg)
             }
 
             now = std::chrono::high_resolution_clock::now();
-            while (std::chrono::duration_cast<std::chrono::nanoseconds>(now - start) < myarg->interval)
+            while (std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count() < myarg->interval)
             {
                 now = std::chrono::high_resolution_clock::now();
             }
