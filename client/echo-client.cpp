@@ -219,6 +219,8 @@ lcore_jitter(lcore_args *args)
     }
 }
 
+rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
+
 static int
 lcore_execute(void *arg)
 {
@@ -248,30 +250,6 @@ lcore_execute(void *arg)
     if (myarg->associatedPorts.size() > 1)
     {
         assert(false);
-    }
-
-    int selfLatency = 0;
-    if (myarg->selfProbe)
-    {
-        selfLatency = ProbeSelfLatency(arg);
-        printf("Thread %d self probe latency = %d.\n", myarg->tid, (uint32_t)selfLatency);
-    }
-    rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
-    for (int i = 0; i < myarg->associatedPorts.size(); i++)
-    {
-        auto port = myarg->associatedPorts.at(i);
-        //let me create a batch of packets that i will be using all the time, which is one.
-        auto pBuf = rte_pktmbuf_alloc(pool);
-        if (pBuf == NULL)
-        {
-            rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
-        }
-        rte_mbuf_refcnt_set(pBuf, myarg->counter);
-        auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
-        pkt_build(pkt_ptr, myarg->srcs.at(i), myarg->dst,
-                  myarg->type, queue, myarg->AzureSupport);
-        pkt_set_attribute(pBuf, myarg->AzureSupport);
-        bufPorts[port] = pBuf;
     }
 
     uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
@@ -308,10 +286,10 @@ lcore_execute(void *arg)
                         found = true;
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
                         elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
-                        myarg->samples.push_back(elapsed >= selfLatency ? elapsed - selfLatency : elapsed);
+                        myarg->samples.push_back(elapsed);
                         if (myarg->verbose)
                         {
-                            printf("echo response. %d us\n", (uint32_t)(elapsed >= selfLatency ? elapsed - selfLatency : elapsed));
+                            printf("echo response. %d us\n", (uint32_t)elapsed);
                         }
                     }
                 }
@@ -421,7 +399,8 @@ int main(int argc, char **argv)
         payloadLen = atoi(ap.retrieve<std::string>("payload").c_str());
     }
 
-    InitializePayloadConstants(payloadLen);
+    InitializePayloadRequest(payloadLen);
+    InitializePayloadResponse();
     /* Initialize NIC ports */
     bool MSFTAZ = false;
     if (ap.count("az") > 0)
@@ -456,8 +435,9 @@ int main(int argc, char **argv)
     uint port;
     std::string prefix;
     int size;
+    int rank;
     /* Start applications */
-    ParseHostPortPrefixWorldSize(combo, host, port, prefix, size);
+    ParseHostPortPrefixWorldSizeRank(combo, host, port, prefix, size, rank);
     //string ip, uint port, string pref = "PLINK"
     PHubRendezvous rendezvous(host, port, prefix);
 
@@ -469,6 +449,15 @@ int main(int argc, char **argv)
         printf("port init failed. %s.\n", rte_strerror(rte_errno));
     }
 
+    int selfLatency = 0;
+    if (ap.count("noSelfProbe") == 0)
+    {
+        selfLatency = ProbeSelfLatency(&larg);
+    }
+    //contribute to self latency to redis.
+    rendezvous.PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
+    rendezvous.SynchronousBarrier("selfProbeSubmission", size);
+
     auto outputs = ap.retrieve<std::vector<string>>("outputs");
     auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
     auto dstMacs = ap.retrieve<std::vector<std::string>>("dstMacs");
@@ -479,6 +468,24 @@ int main(int argc, char **argv)
     }
 
     auto sid = ap.retrieve<std::string>("sid");
+
+    for (int i = 0; i < larg.associatedPorts.size(); i++)
+    {
+        auto port = larg.associatedPorts.at(i);
+        //let me create a batch of packets that i will be using all the time, which is one.
+        auto pBuf = rte_pktmbuf_alloc(larg.pool);
+        if (pBuf == NULL)
+        {
+            rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
+        }
+        rte_mbuf_refcnt_set(pBuf, myarg->counter * size);
+        auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
+        pkt_build(pkt_ptr, myarg->srcs.at(i), myarg->dst,
+                  myarg->type, queue, myarg->AzureSupport);
+        pkt_set_attribute(pBuf, myarg->AzureSupport);
+        bufPorts[port] = pBuf;
+    }
+
     for (int i = 0; i < dstMacs.size(); i++)
     {
         larg.CoreID = 0;

@@ -60,16 +60,29 @@ struct common_hdr
 /* Application Headers */
 //#define ECHO_PAYLOAD_LEN 5
 //int ECHO_PAYLOAD_LEN = 0;
-std::string contents;
+std::string reqContents;
 int ECHO_PAYLOAD_LEN = 5;
-void InitializePayloadConstants(int len)
+void InitializePayloadRequest(int len)
 {
-    assert(contents.size() == 0);
+    assert(reqContents.size() == 0);
     ECHO_PAYLOAD_LEN = len;
-    std::string templatedStr = "PLINK TECHNOLOGIES";
+    std::string templatedStr = "REQPLINK";
     for (int i = 0; i < ECHO_PAYLOAD_LEN; i++)
     {
-        contents += templatedStr.at(i % templatedStr.size());
+        reqContents += templatedStr.at(i % templatedStr.size());
+    }
+    //ECHO_PAYLOAD_LEN = pLen;
+}
+
+std::string responseContents;
+void InitializePayloadResponse()
+{
+    assert(responseContents.size() == 0);
+    assert(ECHO_PAYLOAD_LEN > 0);
+    std::string templatedStr = "RESPONSEPLINK";
+    for (int i = 0; i < ECHO_PAYLOAD_LEN; i++)
+    {
+        responseContents += templatedStr.at(i % templatedStr.size());
     }
     //ECHO_PAYLOAD_LEN = pLen;
 }

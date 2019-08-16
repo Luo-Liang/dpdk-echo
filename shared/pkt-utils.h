@@ -39,5 +39,6 @@ int pkt_server_process(struct rte_mbuf *buf,
 void pkt_dump(struct rte_mbuf *buf);
 uint32_t
 ip_2_uint32(uint8_t ip[]);
-void InitializePayloadConstants(int);
+void InitializePayloadRequest(int);
+void InitializePayloadResponse(int);
 #endif /* _PKT_UTILS_H */
