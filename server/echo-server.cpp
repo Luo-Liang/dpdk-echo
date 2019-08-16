@@ -197,7 +197,7 @@ int main(int argc, char **argv)
     ap.addArgument("--macs", '+', false);
     ap.addArgument("--blocked", true);
     ap.addArgument("--az", 1, true);
-    ap.addArgument("--samples", 1, false);
+    //ap.addArgument("--samples", 1, false);
     ap.addArgument("--benchmark", 1, false);
     ap.addArgument("--output", 1, true);
     ap.addArgument("--payload", 1, true);
@@ -246,8 +246,8 @@ int main(int argc, char **argv)
         MSFTAZ = false;
     }
 
-    size_t samples = 1;
-    samples = atoi(ap.retrieve<std::string>("samples").c_str());
+    //size_t samples = 1;
+    //samples = atoi(ap.retrieve<std::string>("samples").c_str());
 
     for (int idx = 0; idx < threadnum; idx++)
     {
@@ -255,7 +255,7 @@ int main(int argc, char **argv)
         largs[idx].CoreID = CORE;
         largs[idx].tid = idx;
         largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
-        largs[idx].counter = samples;
+        largs[idx].counter = INT32_MAX;
         largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
         largs[idx].AzureSupport = MSFTAZ;
     }

@@ -62,6 +62,7 @@ struct lcore_args
     bool verbose;
     bool selfProbe;
 }; //__attribute__((packed));
+int port_init(lcore_args *larg, std::string srcIp, std::string srcMac, std::vector<std::string> blockedSrcMac);
 
 int ports_init(struct lcore_args *largs,
                //contains one master thread.
@@ -76,4 +77,10 @@ void CoreIdxMap(std::unordered_map<int, int> &lCore2Idx,
 void EmitFile(ArgumentParser &ap,
               lcore_args *largs,
               int threadnum);
+
+
+void EmitFile(std::string output,
+              std::string sid,
+              std::string did,
+              std::vector<uint64_t>& samples);
 #endif /* _CLUSTER_CFG_H */

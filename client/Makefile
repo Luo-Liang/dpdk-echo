@@ -50,7 +50,7 @@ include $(RTE_SDK)/mk/rte.vars.mk
 CC = g++
 # binary name
 APP = echo-client
-LDFLAGS += -lstdc++
+LDFLAGS += -lstdc++ -lhiredis
 CFLAGS += -O3 -g
 #CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -std=c++11

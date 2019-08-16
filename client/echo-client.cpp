@@ -55,7 +55,9 @@
 #include <fstream>
 #include <unistd.h>
 #include <chrono>
+#include <hiredis/hiredis.h>
 
+#include "../shared/rendezvous.h"
 #include "../shared/dpdk-helpers.h"
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
@@ -69,7 +71,6 @@
 // } __attribute__((aligned(64)));
 
 uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
-std::unordered_map<uint32_t, uint32_t> lCore2Idx;
 const int MAX_INTERVAL = 1000;
 /*static inline void 
 pkt_dump(struct rte_mbuf *buf)
@@ -154,7 +155,7 @@ int ProbeSelfLatency(void *arg)
 }
 
 static int
-lcore_jitter(void *args)
+lcore_jitter(lcore_args *args)
 {
     auto myarg = (struct lcore_args *)args;
     auto queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
@@ -358,7 +359,7 @@ int main(int argc, char **argv)
 {
     unsigned lcore_id;
     uint8_t threadnum;
-    struct lcore_args *largs;
+    struct lcore_args larg;
 
     /* Initialize the Environment Abstraction Layer (EAL) */
     int ret = rte_eal_init(argc, argv);
@@ -377,15 +378,15 @@ int main(int argc, char **argv)
     }*/
 
     ArgumentParser ap;
-    ap.addArgument("--srcIps", '+', false);
-    ap.addArgument("--srcMacs", '+', false);
-    ap.addArgument("--dstIp", 1, false);
-    ap.addArgument("--dstMac", 1, false);
+    ap.addArgument("--srcIp", 1, false);
+    ap.addArgument("--srcMac", 1, false);
+    ap.addArgument("--dstIps", '+', false);
+    ap.addArgument("--dstMacs", '+', false);
     ap.addArgument("--samples", 1, false);
     ap.addArgument("--sid", 1, true);
-    ap.addArgument("--did", 1, true);
+    ap.addArgument("--dids", 1, true);
     ap.addArgument("--blocked", true);
-    ap.addArgument("--output", 1, true);
+    ap.addArgument("--outputs", '+', true);
     ap.addArgument("--benchmark", 1, false);
     //enable Windows Azure support
     ap.addArgument("--interval", 1, true);
@@ -393,22 +394,16 @@ int main(int argc, char **argv)
     ap.addArgument("--verbose", 1, true);
     ap.addArgument("--payload", 1, true);
     ap.addArgument("--noSelfProbe", 1, true);
+    ap.addArgument("--rendezvous", 1, false);
+    //ap.addArgument("--rendezvousPrefix", 1, false);
 
     ap.parse(argc, (const char **)argv);
 
-    std::vector<std::string> srcips = ap.retrieve<std::vector<std::string>>("srcIps");
-    std::vector<std::string> srcMacs = ap.retrieve<std::vector<std::string>>("srcMacs");
-    if (srcips.size() != srcMacs.size())
-    {
-        rte_exit(EXIT_FAILURE, "specify same number of ips and macs.");
-    }
-    endhost destination;
-    destination.id = 9367;
-    IPFromString(ap.retrieve<std::string>("dstIp"), destination.ip);
-    MACFromString(ap.retrieve<std::string>("dstMac"), destination.mac);
+    std::string localIP = ap.retrieve<std::string>("srcIp");
+    std::string localMAC = ap.retrieve<std::string>("srcMac");
 
     size_t samples = atoi(ap.retrieve<std::string>("samples").c_str());
-    if (samples == -1)
+    if (samples == (size_t)(-1))
     {
         rte_exit(EXIT_FAILURE, "what is %s?", ap.retrieve<std::string>("samples").c_str());
     }
@@ -428,16 +423,6 @@ int main(int argc, char **argv)
 
     InitializePayloadConstants(payloadLen);
     /* Initialize NIC ports */
-    threadnum = rte_lcore_count();
-    if (threadnum < 2)
-    {
-        rte_exit(EXIT_FAILURE, "use -c -l?! give more cores.");
-    }
-    largs = (lcore_args *)calloc(threadnum, sizeof(*largs));
-
-    std::unordered_map<int, int> lCore2Idx;
-    std::unordered_map<int, int> Idx2LCore;
-    CoreIdxMap(lCore2Idx, Idx2LCore);
     bool MSFTAZ = false;
     if (ap.count("az") > 0)
     {
@@ -455,56 +440,71 @@ int main(int argc, char **argv)
     {
         verbose = true;
     }
-    for (int idx = 0; idx < threadnum; idx++)
-    {
-        int CORE = Idx2LCore.at(idx);
-        largs[idx].CoreID = CORE;
-        largs[idx].tid = idx;
-        largs[idx].type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
-        largs[idx].dst = destination;
-        largs[idx].counter = samples;
-        largs[idx].master = rte_get_master_lcore() == largs[idx].CoreID;
-        largs[idx].AzureSupport = MSFTAZ;
-        largs[idx].interval = interval;
-        largs[idx].verbose = verbose;
-        largs[idx].selfProbe = !noSelfProbe;
-    }
+    //for (int idx = 0; idx < threadnum; idx++)
+    //{
+
+    //}
     std::vector<std::string> blockedIFs;
     if (ap.count("blocked") > 0)
     {
         blockedIFs = ap.retrieve<std::vector<std::string>>("blocked");
     }
-    ret = ports_init(largs, threadnum, srcips, srcMacs, blockedIFs);
+
+    std::string combo = ap.retrieve<std::string>("rendezvous");
+
+    std::string host;
+    uint port;
+    std::string prefix;
+    int size;
+    /* Start applications */
+    ParseHostPortPrefixWorldSize(combo, host, port, prefix, size);
+    //string ip, uint port, string pref = "PLINK"
+    PHubRendezvous rendezvous(host, port, prefix);
+
+    rendezvous.SynchronousBarrier("initial", size);
+
+    ret = port_init(&larg, localIP, localMAC, blockedIFs);
     if (ret != 0)
     {
         printf("port init failed. %s.\n", rte_strerror(rte_errno));
     }
 
-    /* Start applications */
-    printf("Starting Workers\n");
-    // phase = BENCHMARK_WARMUP;
-    // if (mysettings.warmup_time)
-    // {
-    //     sleep(mysettings.warmup_time);
-    //     printf("Warmup done\n");
-    // }
-
-    /* call lcore_execute() on every slave lcore */
-    if (ap.retrieve<std::string>("benchmark") == "jitter")
+    auto outputs = ap.retrieve<std::vector<string>>("outputs");
+    auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
+    auto dstMacs = ap.retrieve<std::vector<std::string>>("dstMacs");
+    auto dids = ap.retrieve<std::vector<std::string>>("dids");
+    if (dstIps.size() != dstMacs.size() || dstMacs.size() != dids.size() || dids.size() != outputs.size())
     {
-        RTE_LCORE_FOREACH_SLAVE(lcore_id)
-        {
-            rte_eal_remote_launch(lcore_jitter, (void *)(&largs[lCore2Idx.at(lcore_id)]),
-                                  lcore_id);
-        }
+        rte_exit(EXIT_FAILURE, "specify same number of destination ips and macs and remote ids.");
     }
-    else
+
+    auto sid = ap.retrieve<std::string>("sid");
+    for (int i = 0; i < dstMacs.size(); i++)
     {
-        RTE_LCORE_FOREACH_SLAVE(lcore_id)
+        larg.CoreID = 0;
+        larg.type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
+        larg.counter = samples;
+        larg.master = true; // rte_get_master_lcore() == largs[idx].CoreID;
+        larg.AzureSupport = MSFTAZ;
+        larg.interval = interval;
+        larg.verbose = verbose;
+        larg.selfProbe = !noSelfProbe;
+        larg.samples.clear();
+        IPFromString(dstIps.at(i), larg.dst.ip);
+        MACFromString(dstMacs.at(i), larg.dst.mac);
+        if (ap.retrieve<std::string>("benchmark") == "jitter")
         {
-            rte_eal_remote_launch(lcore_execute, (void *)(&largs[lCore2Idx.at(lcore_id)]),
-                                  lcore_id);
+            lcore_jitter(&larg);
         }
+        else
+        {
+            lcore_execute(&larg);
+        }
+        //emit file
+        //output is a prefix
+        auto barrierName = CxxxxStringFormat("round %d", i);
+        EmitFile(outputs.at(i), sid, dids.at(i), larg.samples);
+        rendezvous.SynchronousBarrier(barrierName, size);
     }
     //sleep(mysettings.run_time);
 
@@ -517,11 +517,10 @@ int main(int argc, char **argv)
 
     // printf("Benchmark done\n");
 
-    rte_eal_mp_wait_lcore();
     printf("All threads have finished executing.\n");
 
     /* print status */
-    EmitFile(ap, largs, threadnum);
-    free(largs);
+    //EmitFile(ap, largs, threadnum);
+    //free(largs);
     return 0;
 }
