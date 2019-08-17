@@ -30,14 +30,15 @@ void pkt_build(char *pkt_ptr,
                uint8_t tid,
                bool manualCksum);
 void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum);
-void pkt_client_data_build(char *pkt_ptr, enum pkt_type type);
-int pkt_client_process(struct rte_mbuf *buf, enum pkt_type type, uint32_t);
 uint16_t udp_checksum(udphdr *, uint32_t, uint32_t);
-int pkt_server_process(struct rte_mbuf *buf,
-                       enum pkt_type type);
+void pkt_prepare_reponse(struct rte_mbuf* buf);
+pkt_type pkt_process(rte_mbuf* buf, uint32_t ip);
+void pkt_prepare_request(char* pkt_ptr);
+
+
 void pkt_dump(struct rte_mbuf *buf);
 uint32_t
 ip_2_uint32(uint8_t ip[]);
 void InitializePayloadRequest(int);
-void InitializePayloadResponse(int);
+void InitializePayloadResponse();
 #endif /* _PKT_UTILS_H */

@@ -306,8 +306,10 @@ lcore_execute(void* arg)
 					end = std::chrono::high_resolution_clock::now();
 					for (int i = 0; i < recv; i++)
 					{
-						if (pkt_client_process(rbufs[i], myarg->type, expectedRemoteIp))
+						auto type = pkt_process(rbufs[i], expectedRemoteIp)
+						if (type == ECHO_REQ)
 						{
+							//it is a request. I need to send aresponse.
 							consecTimeouts = 0;
 							found = true;
 							//__sync_fetch_and_add(&tot_proc_pkts, 1);
@@ -318,6 +320,7 @@ lcore_execute(void* arg)
 								printf("echo response. %d us\n", (uint32_t)elapsed);
 							}
 						}
+
 					}
 
 					for (int i = 0; i < recv; i++)

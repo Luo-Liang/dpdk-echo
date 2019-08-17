@@ -224,8 +224,7 @@ pkt_type pkt_process(rte_mbuf* buf, uint32_t ip)
 	}
 }
 
-void
-pkt_prepare_reponse(struct rte_mbuf* buf)
+void pkt_prepare_reponse(struct rte_mbuf* buf)
 {
 	struct echo_hdr* mypkt = rte_pktmbuf_mtod(buf, struct echo_hdr*);
 	rte_memcpy(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN);
