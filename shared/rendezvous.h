@@ -21,7 +21,7 @@ std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter)
 	return tokens;
 }
 
-void ParseHostPortPrefixWorldSizeRank(std::string combo, std::string &host, uint &port, std::string &prefix, int& ws, int& rank)
+void ParseHostPortPrefixWorldSizeRank(std::string combo, std::string &host, uint16_t &port, std::string &prefix, int& ws, int& rank)
 {
 	auto redisVec = CxxxxStringSplit(combo, ':');
 	assert(redisVec.size() == 3);

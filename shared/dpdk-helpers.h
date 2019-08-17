@@ -32,55 +32,46 @@
 
 enum pkt_type
 {
-    ECHO,
+	ECHO_REQ,
+	ECHO_RES,
+	ECHO_IRRELEVANT
 };
 
 struct endhost
 {
-    int id;
-    uint8_t mac[ETHER_ADDR_LEN];
-    uint8_t ip[IPV4_ADDR_LEN];
+	uint8_t mac[ETHER_ADDR_LEN];
+	uint8_t ip[IPV4_ADDR_LEN];
 } __attribute__((packed));
 
 struct lcore_args
 {
-    std::vector<endhost> srcs;
-    endhost dst;
-    enum pkt_type type;
-    //the index of this arg in largs*, where a master is also included at 0.
-    uint8_t tid;
-    //volatile enum benchmark_phase *phase;
-    struct rte_mempool *pool;
-    std::vector<uint64_t> samples;
-    int counter;
-    std::vector<uint32_t> associatedPorts;
-    //std::vector<uint32_t> coreIdx2LCoreId;
-    uint32_t CoreID;
-    bool master;
-    bool AzureSupport;
-    int interval;
-    bool verbose;
-    bool selfProbe;
+	endhost src;
+	std::vector<endhost> dsts;
+	//the index of this arg in largs*, where a master is also included at 0.
+	//volatile enum benchmark_phase *phase;
+	struct rte_mempool* pool;
+	std::vector<vector<uint64_t>> samples;
+	int counter;
+	std::vector<uint32_t> associatedPorts;
+	//std::vector<uint32_t> coreIdx2LCoreId;
+	bool master;
+	bool AzureSupport;
+	int interval;
+	bool verbose;
+	bool selfProbe;
 }; //__attribute__((packed));
-int port_init(lcore_args *larg, std::string srcIp, std::string srcMac, std::vector<std::string> blockedSrcMac);
+int port_init(lcore_args* larg, std::string srcIp, std::string srcMac, std::vector<std::string> blockedSrcMac);
 
-int ports_init(struct lcore_args *largs,
-               //contains one master thread.
-               uint8_t threadCount,
-               std::vector<std::string> suppliedIPs,
-               std::vector<std::string> suppliedMacs,
-               std::vector<std::string> blockedSrcMac);
+void CoreIdxMap(std::unordered_map<int, int>& lCore2Idx,
+	std::unordered_map<int, int>& idx2LCoreId);
 
-void CoreIdxMap(std::unordered_map<int, int> &lCore2Idx,
-                std::unordered_map<int, int> &idx2LCoreId);
-
-void EmitFile(ArgumentParser &ap,
-              lcore_args *largs,
-              int threadnum);
+void EmitFile(ArgumentParser& ap,
+	lcore_args* largs,
+	int threadnum);
 
 
 void EmitFile(std::string output,
-              std::string sid,
-              std::string did,
-              std::vector<uint64_t>& samples);
+	std::string sid,
+	std::string did,
+	std::vector<uint64_t>& samples);
 #endif /* _CLUSTER_CFG_H */

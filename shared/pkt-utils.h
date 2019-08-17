@@ -27,7 +27,6 @@ uint16_t pkt_size(enum pkt_type type);
 void pkt_build(char *pkt_ptr,
                endhost &src,
                endhost &des,
-               enum pkt_type type,
                uint8_t tid,
                bool manualCksum);
 void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum);
