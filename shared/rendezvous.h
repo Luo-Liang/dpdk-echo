@@ -7,6 +7,9 @@
 #include <mutex>
 #include <assert.h>
 #include <sstream>
+#include <thread> 
+#include <mutex>
+
 using namespace std;
 
 std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter)
@@ -47,13 +50,42 @@ static std::string CxxxxStringFormat(const char *format, Args... args)
 	return std::move(str);
 }
 
-class PHubRendezvous
+class NonblockingSingleBarrier
 {
 	string IP;
 	uint Port;
 	redisContext *pContext;
 	string prefix;
 	std::recursive_mutex mutex;
+	std::string name;
+
+
+	void foo()
+	{
+
+		while(name != "")
+		{
+			auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), name.c_str());
+			auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
+			assert(replyInc); // << pContext->errstr;
+			//CHECK(reply) << pContext->errstr;
+			while (true)
+			{
+				usleep(50000);
+				//try to see how many we have now.
+				auto reply = redisCommand(pContext, "GET %s", str.c_str());
+				assert(reply); // << pContext->errstr;
+				auto pReply = (redisReply*)reply;
+				assert(pReply->type == REDIS_REPLY_STRING);
+				if (atoi(pReply->str) == participants)
+				{
+					mutex.lock();
+					name = "";
+					mutex.unlock();
+				}
+			}
+		}
+	}
 
 public:
 	void GetIpPort(std::string *str, uint *port)
@@ -62,11 +94,12 @@ public:
 		*port = Port;
 	}
 
-	PHubRendezvous(string ip, uint port, string pref = "PLINK") : IP(ip), Port(port), prefix(pref)
+	NonblockingSingleBarrier(string ip, uint port, string pref = "PLINK") : IP(ip), Port(port), prefix(pref)
 	{
+
 	}
 
-	~PHubRendezvous()
+	~NonblockingSingleBarrier()
 	{
 		redisFree(pContext);
 		pContext = NULL;
@@ -80,6 +113,17 @@ public:
 		assert(pContext->err == 0); // << pContext->errstr;
 									//clean up old dbs.
 									//CHECK(redisCommand(pContext, "FLUSHALL"));
+	}
+
+	void SubmitBarrier(std::string name)
+	{
+
+	}
+
+	bool NonBlockingQueryBarrier(std::string name)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex);
+
 	}
 
 	void SynchronousBarrier(std::string name, int participants)
