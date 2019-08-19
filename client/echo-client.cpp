@@ -62,13 +62,13 @@
 #include "../shared/pkt-utils.h"
 #include "../shared/argparse.h"
 
- // enum benchmark_phase
- // {
- //     BENCHMARK_WARMUP,
- //     BENCHMARK_RUNNING,
- //     BENCHMARK_COOLDOWN,
- //     BENCHMARK_DONE,
- // } __attribute__((aligned(64)));
+// enum benchmark_phase
+// {
+//     BENCHMARK_WARMUP,
+//     BENCHMARK_RUNNING,
+//     BENCHMARK_COOLDOWN,
+//     BENCHMARK_DONE,
+// } __attribute__((aligned(64)));
 
 uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
 const int MAX_INTERVAL = 1000;
@@ -84,10 +84,10 @@ pkt_dump(struct rte_mbuf *buf)
 //     return std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count();
 // }
 
-int ProbeSelfLatency(void* arg)
+int ProbeSelfLatency(void *arg)
 {
 	//printf("here1");
-	auto myarg = (lcore_args*)arg;
+	auto myarg = (lcore_args *)arg;
 	auto pool = myarg->pool;
 	auto port = myarg->associatedPorts.at(0);
 	auto pBuf = rte_pktmbuf_alloc(pool);
@@ -104,7 +104,7 @@ int ProbeSelfLatency(void* arg)
 	pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->srcs.at(0), myarg->type, queue, myarg->AzureSupport);
 	//pkt_dump(pBuf);
 	//printf("here2");
-	struct rte_mbuf* rbufs[BATCH_SIZE];
+	struct rte_mbuf *rbufs[BATCH_SIZE];
 	struct timeval start, end;
 
 	int elapsed = 0;
@@ -153,89 +153,23 @@ int ProbeSelfLatency(void* arg)
 	//these are measured in microseconds.
 	return 2 * 1000 * (elapsed / PROBE_COUNT);
 }
+NonblockingSingleBarrier *rendezvous;
 
 static int
-lcore_jitter(lcore_args* args)
+lcore_execute(void *arg)
 {
-	auto myarg = (struct lcore_args*)args;
-	auto queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
-	//one port probably needs to be touched by multiple procs in real app.
-	auto pool = myarg->pool;
-	//phase = myarg->phase;
-	//bsz = BATCH_SIZE;
-	if (myarg->associatedPorts.size() == 0)
-	{
-		printf("Thread %d has finished executing.\n", myarg->tid);
-		return 0;
-	}
-
-	if (myarg->associatedPorts.size() != 1)
-	{
-		fprintf(stderr, "jitter only works for 1 port");
-		assert(false);
-	}
-
-	//now, try to burst.
-	rte_mbuf* sbufs[BATCH_SIZE];
-	auto port = myarg->associatedPorts[0];
-
-	for (int i = 0; i < BATCH_SIZE; i++)
-	{
-		auto pBuf = rte_pktmbuf_alloc(pool);
-		if (pBuf == NULL)
-		{
-			rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
-		}
-		rte_mbuf_refcnt_set(pBuf, UINT16_MAX);
-		auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
-		pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->dst, myarg->type, queue, myarg->AzureSupport);
-		pkt_set_attribute(pBuf, myarg->AzureSupport);
-		sbufs[i] = pBuf;
-	}
-	timeval start, now;
-	gettimeofday(&start, NULL);
-	myarg->counter = 0;
-	while (true)
-	{
-		int txed = 0;
-		if (0 > (txed = rte_eth_tx_burst(port, queue, sbufs, BATCH_SIZE)))
-		{
-			rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
-		}
-		//printf("remaining pkts = %d\n", myarg->counter);
-		gettimeofday(&now, NULL);
-		if (now.tv_sec - start.tv_sec > 10)
-		{
-			break;
-		}
-		myarg->counter++;
-		if (myarg->counter % (UINT16_MAX + 1))
-		{
-			for (int i = 0; i < BATCH_SIZE; i++)
-			{
-				rte_mbuf_refcnt_set(sbufs[i], UINT16_MAX);
-			}
-		}
-	}
-}
-
-rte_mbuf* bufPorts[RTE_MAX_ETHPORTS];
-
-static int
-lcore_execute(void* arg)
-{
-	struct lcore_args* myarg;
+	struct lcore_args *myarg;
 	uint8_t queue;
-	struct rte_mempool* pool;
+	struct rte_mempool *pool;
 	//volatile enum benchmark_phase *phase;
 	//receive buffers.
-	struct rte_mbuf* rbufs[BATCH_SIZE];
+	struct rte_mbuf *rbufs[BATCH_SIZE];
 	auto start = std::chrono::high_resolution_clock::now();
 	auto end = std::chrono::high_resolution_clock::now();
 	auto now = std::chrono::high_resolution_clock::now();
 	uint64_t elapsed;
 
-	myarg = (struct lcore_args*)arg;
+	myarg = (struct lcore_args *)arg;
 	queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
 	//one port probably needs to be touched by multiple procs in real app.
 	pool = myarg->pool;
@@ -252,51 +186,47 @@ lcore_execute(void* arg)
 		assert(false);
 	}
 
-	uint32_t expectedRemoteIp = ip_2_uint32(myarg->dst.ip);
+	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
 	int worldSize = myarg->dsts.size();
 	int samples = myarg->samples;
-	for (int i = 0; i < myarg->dsts.size(); i++)
+	for (int round = 0; round < myarg->dsts.size(); round++)
 	{
+		auto pBuf = rte_pktmbuf_alloc(larg.pool);
 		//ready up pBufs.
-		for (int j = 0; j < larg.associatedPorts.size(); j++)
+		//let me create a batch of packets that i will be using all the time, which is one.
+		if (pBuf == NULL)
 		{
-			auto port = larg.associatedPorts.at(j);
-			//let me create a batch of packets that i will be using all the time, which is one.
-			auto pBuf = rte_pktmbuf_alloc(larg.pool);
-			if (pBuf == NULL)
-			{
-				rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
-			}
-			rte_mbuf_refcnt_set(pBuf, myarg->counter);
-			auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-			pkt_build(pkt_ptr, myarg->src, myarg->dst,
-				myarg->type, queue, myarg->AzureSupport);
-			pkt_set_attribute(pBuf, myarg->AzureSupport);
-			bufPorts[port] = pBuf;
+			rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
 		}
+		rte_mbuf_refcnt_set(pBuf, myarg->counter);
+		auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
+		pkt_build(pkt_ptr, myarg->src, myarg->dst,
+				  myarg->type, queue, myarg->AzureSupport);
+		pkt_set_attribute(pBuf, myarg->AzureSupport);
 
 		int consecTimeouts = 0;
 		myarg.counter = samples;
-		var bName = CxxxxStringFormat("prepare %d", i);
-		rendezvous->SynchronousBarrier(bName, worldSize);
-
-		while (myarg->samples.size() < myarg->counter && consecTimeouts < 10)
+		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier() == false)
 		{
 			for (auto port : myarg->associatedPorts)
 			{
 				/* Receive and process responses */
 				//send a single packet and wait for response.
 				/* Prepare and send requests */
-				auto pBuf = bufPorts[port];
-				//pkt_dump(bufs[i]);
-				start = std::chrono::high_resolution_clock::now();
-				if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
+				//do this only if not enough sample is collected.
+				if (sendMoreProbe)
 				{
-					rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
+					//pkt_dump(bufs[i]);
+					start = std::chrono::high_resolution_clock::now();
+					if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
+					{
+						rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
+					}
 				}
 				/* free non-sent buffers */
 				bool found = false;
-				while (found == false)
+				while ((found == false && sendMoreProbe == true) || (sendMoreProbe == false && rendezvous->NonBlockingQueryBarrier() == false))
 				{
 					int recv = 0;
 					if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
@@ -306,50 +236,67 @@ lcore_execute(void* arg)
 					end = std::chrono::high_resolution_clock::now();
 					for (int i = 0; i < recv; i++)
 					{
-						auto type = pkt_process(rbufs[i], expectedRemoteIp)
-						if (type == ECHO_REQ)
+						auto type = pkt_process(rbufs[i], expectedMyIp);
+						if (type == ECHO_RES)
 						{
-							//it is a request. I need to send aresponse.
-							consecTimeouts = 0;
-							found = true;
-							//__sync_fetch_and_add(&tot_proc_pkts, 1);
-							elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
-							myarg->samples.at(myarg->IterationID).push_back(elapsed);
-							if (myarg->verbose)
+							if (sendMoreProbe)
 							{
-								printf("echo response. %d us\n", (uint32_t)elapsed);
+								//it is a response. I can record time.
+								consecTimeouts = 0;
+								found = true;
+								//__sync_fetch_and_add(&tot_proc_pkts, 1);
+								elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
+								myarg->samples.at(round).push_back(elapsed);
+								if (myarg->verbose)
+								{
+									printf("echo response. %d us\n", (uint32_t)elapsed);
+								}
+								sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+								if (sendMoreProbe == false)
+								{
+									//a flip of truth value means a submission to the barrier
+									std::string barrierName = CxxxxStringFormat("round %d", round);
+									rendezvous->SubmitBarrier(barrierName, worldSize);
+								}
+							}
+							else
+							{
+								printf("echo response received but not expected.\n");
 							}
 						}
-
-					}
-
-					for (int i = 0; i < recv; i++)
-					{
+						else if (type == ECHO_REQ)
+						{
+							//someone else's request. Send response.
+							pkt_set_attribute(rbufs[i], myarg->AzureSupport);
+							pkt_prepare_reponse(rbufs[i]);
+							//let dpdk decide whether to batch or not
+							rte_eth_tx_burst(port, queue, &rbufs[i])
+						}
 						rte_pktmbuf_free(rbufs[i]);
 					}
 
-					//what if the packet is lost??
-					//2s.
-					const size_t TIME_OUT = 2000000000ULL;
-					size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
-					if (timeDelta > TIME_OUT)
+					//set a 1s timeout.
+					if (sendMoreProbe)
 					{
-						//1ms is long enough for us to tell the packet is lost.
-						found = true;
-						consecTimeouts++;
-						//this will trigger a resend.
-						//if (myarg->samples.size() == myarg->counter - 1)
-						//{
-						myarg->counter--;
-						//myarg->samples.push_back(TIME_OUT);
-						//choosing median. penalizing drops.
-						//myarg->samples.push_back(1000);
-						//}
+						//timeout and recovery only relevant if more packets are sent.
+						const size_t TIME_OUT = 1000000000ULL;
+						size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
+						if (timeDelta > TIME_OUT)
+						{
+							//1ms is long enough for us to tell the packet is lost.
+							found = true;
+							consecTimeouts++;
+							//this will trigger a resend.
+							//if (myarg->samples.size() == myarg->counter - 1)
+							//{
+							myarg->counter--;
+							//myarg->samples.push_back(TIME_OUT);
+							//choosing median. penalizing drops.
+							//myarg->samples.push_back(1000);
+							//}
+						}
 					}
-					//but what about server is turned off, because it thinks it sent the last message?
-					//but that last messagfe is lost? i cannot resend forever.
 				}
-
 				now = std::chrono::high_resolution_clock::now();
 				while (std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count() < myarg->interval)
 				{
@@ -363,9 +310,7 @@ lcore_execute(void* arg)
 	return 0;
 }
 
-
-PHubRendezvous* rendezvous;
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
 	unsigned lcore_id;
 	uint8_t threadnum;
@@ -397,7 +342,6 @@ int main(int argc, char** argv)
 	ap.addArgument("--dids", 1, true);
 	ap.addArgument("--blocked", true);
 	ap.addArgument("--outputs", '+', true);
-	ap.addArgument("--benchmark", 1, false);
 	//enable Windows Azure support
 	ap.addArgument("--interval", 1, true);
 	ap.addArgument("--az", 1, true);
@@ -407,7 +351,7 @@ int main(int argc, char** argv)
 	ap.addArgument("--rendezvous", 1, false);
 	//ap.addArgument("--rendezvousPrefix", 1, false);
 
-	ap.parse(argc, (const char**)argv);
+	ap.parse(argc, (const char **)argv);
 
 	std::string localIP = ap.retrieve<std::string>("srcIp");
 	std::string localMAC = ap.retrieve<std::string>("srcMac");
@@ -471,9 +415,9 @@ int main(int argc, char** argv)
 	/* Start applications */
 	ParseHostPortPrefixWorldSizeRank(combo, host, port, prefix, size, rank);
 	//string ip, uint port, string pref = "PLINK"
-	rendezvous = new PHubRendezvous(host, port, prefix);
-
-	rendezvous.SynchronousBarrier("initial", size);
+	rendezvous = new NonblockingSingleBarrier(host, port, prefix);
+	rendezvous->Connect();
+	rendezvous->SynchronousBarrier("initial", size);
 
 	ret = port_init(&larg, localIP, localMAC, blockedIFs);
 	if (ret != 0)
@@ -487,8 +431,8 @@ int main(int argc, char** argv)
 		selfLatency = ProbeSelfLatency(&larg);
 	}
 	//contribute to self latency to redis.
-	rendezvous.PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
-	rendezvous.SynchronousBarrier("selfProbeSubmission", size);
+	rendezvous->PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
+	rendezvous->SynchronousBarrier("selfProbeSubmission", size);
 
 	auto outputs = ap.retrieve<std::vector<string>>("outputs");
 	auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
@@ -500,8 +444,6 @@ int main(int argc, char** argv)
 	}
 
 	auto sid = ap.retrieve<std::string>("sid");
-
-
 
 	larg.samples.resize(size, std::vector<uin64_t>());
 	larg.IterationID = 0;
@@ -517,14 +459,7 @@ int main(int argc, char** argv)
 		IPFromString(dstIps.at(i), larg.dsts.at(i).ip);
 		MACFromString(dstMacs.at(i), larg.dsts.at(i).mac);
 	}
-	if (ap.retrieve<std::string>("benchmark") == "jitter")
-	{
-		lcore_jitter(&larg);
-	}
-	else
-	{
-		lcore_execute(&larg);
-	}
+	lcore_execute(&larg);
 
 	//sleep(mysettings.run_time);
 

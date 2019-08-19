@@ -203,7 +203,7 @@ void pkt_prepare_request(char* pkt_ptr)
 pkt_type pkt_process(rte_mbuf* buf, uint32_t ip)
 {
 	echo_hdr* mypkt = rte_pktmbuf_mtod(buf, echo_hdr*);
-	if (mypkt->pro_hdr.ip.src_addr == ip)
+	if (mypkt->pro_hdr.ip.dst_addr == ip)
 	{
 		if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{

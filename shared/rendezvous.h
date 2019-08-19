@@ -9,6 +9,7 @@
 #include <sstream>
 #include <thread> 
 #include <mutex>
+#include <atomic>
 
 using namespace std;
 
@@ -58,29 +59,36 @@ class NonblockingSingleBarrier
 	string prefix;
 	std::recursive_mutex mutex;
 	std::string name;
+	int worldSize;
 
-
-	void foo()
+	void RoutineLoop()
 	{
-
-		while(name != "")
+		mutex.lock();
+		auto workName = name;
+		mutex.unlock();
+		while(workName != "")
 		{
-			auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), name.c_str());
+			auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
 			auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
 			assert(replyInc); // << pContext->errstr;
 			//CHECK(reply) << pContext->errstr;
 			while (true)
 			{
-				usleep(50000);
+				//100ms.
+				//64 -> 1.6ms/req
+				usleep(100000);
 				//try to see how many we have now.
 				auto reply = redisCommand(pContext, "GET %s", str.c_str());
 				assert(reply); // << pContext->errstr;
 				auto pReply = (redisReply*)reply;
 				assert(pReply->type == REDIS_REPLY_STRING);
-				if (atoi(pReply->str) == participants)
+				if (atoi(pReply->str) == worldSize)
 				{
 					mutex.lock();
-					name = "";
+					if(workName == name)
+					{
+						name = "";
+					}
 					mutex.unlock();
 				}
 			}
@@ -115,15 +123,22 @@ public:
 									//CHECK(redisCommand(pContext, "FLUSHALL"));
 	}
 
-	void SubmitBarrier(std::string name)
-	{
-
-	}
-
-	bool NonBlockingQueryBarrier(std::string name)
+	bool SubmitBarrier(std::string workName, int ws)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
+		assert(name == "");
+		worldSize = ws;
+		name = workName;
+		auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), name.c_str());
+		auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
+		assert(replyInc); // << pContext->errstr;
+	}
 
+	bool NonBlockingQueryBarrier()
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex);
+		//done if name is clear.
+		return name == "";
 	}
 
 	void SynchronousBarrier(std::string name, int participants)
