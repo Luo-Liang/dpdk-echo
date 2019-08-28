@@ -144,7 +144,6 @@ pkt_swap_address(struct common_hdr* comhdr)
 void pkt_build(char* pkt_ptr,
 	endhost& src,
 	endhost& des,
-	uint8_t tid,
 	bool manualCksum)
 {
 	common_hdr* myhdr = (struct common_hdr*)pkt_ptr;
@@ -169,7 +168,7 @@ void pkt_build(char* pkt_ptr,
 	//}
 	//printf("building a udp packet from ip = %d.%d.%d.%d to %d.%d.%d.%d\n", mysrc->ip[0], mysrc->ip[1], mysrc->ip[2], mysrc->ip[3], mydes->ip[0], mydes->ip[1], mydes->ip[2], mydes->ip[3]);
 	// UDP header
-	myhdr->udp.src_port = htons(UDP_SRC_PORT + tid);
+	myhdr->udp.src_port = htons(UDP_SRC_PORT);
 	myhdr->udp.dst_port = htons(UDP_DES_PORT);
 	myhdr->udp.dgram_len = htons(pkt_size() - ETHER_HEADER_LEN - IP_HEADER_LEN); // -
 		//UDP_HEADER_LEN;
@@ -207,7 +206,7 @@ pkt_type pkt_process(rte_mbuf* buf, uint32_t ip)
 	{
 		if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{
-			return pkt_type:ECHO_REQ;
+			return pkt_type::ECHO_REQ;
 		}
 		else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{

@@ -89,7 +89,7 @@ int ProbeSelfLatency(void *arg)
 	//printf("here1");
 	auto myarg = (lcore_args *)arg;
 	auto pool = myarg->pool;
-	auto port = myarg->associatedPorts.at(0);
+	auto port = myarg->associatedPort;
 	auto pBuf = rte_pktmbuf_alloc(pool);
 	auto queue = 0;
 	const int PROBE_COUNT = 1000;
@@ -100,15 +100,15 @@ int ProbeSelfLatency(void *arg)
 	}
 	//printf("here3");
 	rte_mbuf_refcnt_set(pBuf, selfProbeCount);
-	auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size(myarg->type));
-	pkt_build(pkt_ptr, myarg->srcs.at(0), myarg->srcs.at(0), myarg->type, queue, myarg->AzureSupport);
+	auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
+	pkt_build(pkt_ptr, myarg->src, myarg->src, myarg->AzureSupport);
 	//pkt_dump(pBuf);
 	//printf("here2");
 	struct rte_mbuf *rbufs[BATCH_SIZE];
 	struct timeval start, end;
 
 	int elapsed = 0;
-	uint32_t selfProbeIP = ip_2_uint32(myarg->srcs.at(0).ip);
+	uint32_t selfProbeIP = ip_2_uint32(myarg->src.ip);
 	while (selfProbeCount-- > 0)
 	{
 		gettimeofday(&start, NULL);
@@ -127,7 +127,7 @@ int ProbeSelfLatency(void *arg)
 			gettimeofday(&end, NULL);
 			for (int i = 0; i < recv; i++)
 			{
-				if (pkt_client_process(rbufs[i], myarg->type, selfProbeIP))
+				if (pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP))
 				{
 					found = true;
 					selfProbeCount--;
@@ -175,23 +175,12 @@ lcore_execute(void *arg)
 	pool = myarg->pool;
 	//phase = myarg->phase;
 	//bsz = BATCH_SIZE;
-	if (myarg->associatedPorts.size() == 0)
-	{
-		printf("Thread %d has finished executing.\n", myarg->tid);
-		return 0;
-	}
-
-	if (myarg->associatedPorts.size() > 1)
-	{
-		assert(false);
-	}
-
 	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
 	int worldSize = myarg->dsts.size();
-	int samples = myarg->samples;
+	int samples = myarg->counter;
 	for (int round = 0; round < myarg->dsts.size(); round++)
 	{
-		auto pBuf = rte_pktmbuf_alloc(larg.pool);
+		auto pBuf = rte_pktmbuf_alloc(myarg->pool);
 		//ready up pBufs.
 		//let me create a batch of packets that i will be using all the time, which is one.
 		if (pBuf == NULL)
@@ -200,113 +189,109 @@ lcore_execute(void *arg)
 		}
 		rte_mbuf_refcnt_set(pBuf, myarg->counter);
 		auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-		pkt_build(pkt_ptr, myarg->src, myarg->dst,
-				  myarg->type, queue, myarg->AzureSupport);
+		pkt_build(pkt_ptr, myarg->src, myarg->dsts.at(round), myarg->AzureSupport);
 		pkt_set_attribute(pBuf, myarg->AzureSupport);
 
 		int consecTimeouts = 0;
-		myarg.counter = samples;
+		myarg->counter = samples;
 		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
 		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier() == false)
 		{
-			for (auto port : myarg->associatedPorts)
+			auto port = myarg->associatedPort;
+			/* Receive and process responses */
+			//send a single packet and wait for response.
+			/* Prepare and send requests */
+			//do this only if not enough sample is collected.
+			if (sendMoreProbe)
 			{
-				/* Receive and process responses */
-				//send a single packet and wait for response.
-				/* Prepare and send requests */
-				//do this only if not enough sample is collected.
-				if (sendMoreProbe)
+				//pkt_dump(bufs[i]);
+				start = std::chrono::high_resolution_clock::now();
+				if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
 				{
-					//pkt_dump(bufs[i]);
-					start = std::chrono::high_resolution_clock::now();
-					if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
-					{
-						rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
-					}
-				}
-				/* free non-sent buffers */
-				bool found = false;
-				while ((found == false && sendMoreProbe == true) || (sendMoreProbe == false && rendezvous->NonBlockingQueryBarrier() == false))
-				{
-					int recv = 0;
-					if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
-					{
-						rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
-					}
-					end = std::chrono::high_resolution_clock::now();
-					for (int i = 0; i < recv; i++)
-					{
-						auto type = pkt_process(rbufs[i], expectedMyIp);
-						if (type == ECHO_RES)
-						{
-							if (sendMoreProbe)
-							{
-								//it is a response. I can record time.
-								consecTimeouts = 0;
-								found = true;
-								//__sync_fetch_and_add(&tot_proc_pkts, 1);
-								elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
-								myarg->samples.at(round).push_back(elapsed);
-								if (myarg->verbose)
-								{
-									printf("echo response. %d us\n", (uint32_t)elapsed);
-								}
-								sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
-								if (sendMoreProbe == false)
-								{
-									//a flip of truth value means a submission to the barrier
-									std::string barrierName = CxxxxStringFormat("round %d", round);
-									rendezvous->SubmitBarrier(barrierName, worldSize);
-								}
-							}
-							else
-							{
-								printf("echo response received but not expected.\n");
-							}
-						}
-						else if (type == ECHO_REQ)
-						{
-							//someone else's request. Send response.
-							pkt_set_attribute(rbufs[i], myarg->AzureSupport);
-							pkt_prepare_reponse(rbufs[i]);
-							//let dpdk decide whether to batch or not
-							rte_eth_tx_burst(port, queue, &rbufs[i])
-						}
-						rte_pktmbuf_free(rbufs[i]);
-					}
-
-					//set a 1s timeout.
-					if (sendMoreProbe)
-					{
-						//timeout and recovery only relevant if more packets are sent.
-						const size_t TIME_OUT = 1000000000ULL;
-						size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
-						if (timeDelta > TIME_OUT)
-						{
-							//1ms is long enough for us to tell the packet is lost.
-							found = true;
-							consecTimeouts++;
-							//this will trigger a resend.
-							//if (myarg->samples.size() == myarg->counter - 1)
-							//{
-							myarg->counter--;
-							//myarg->samples.push_back(TIME_OUT);
-							//choosing median. penalizing drops.
-							//myarg->samples.push_back(1000);
-							//}
-						}
-					}
-				}
-				now = std::chrono::high_resolution_clock::now();
-				while (std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count() < myarg->interval)
-				{
-					now = std::chrono::high_resolution_clock::now();
+					rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
 				}
 			}
-			//usleep(rand() % MAX_INTERVAL);
+			/* free non-sent buffers */
+			bool found = false;
+			while ((found == false && sendMoreProbe == true) || (sendMoreProbe == false && rendezvous->NonBlockingQueryBarrier() == false))
+			{
+				int recv = 0;
+				if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
+				{
+					rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
+				}
+				end = std::chrono::high_resolution_clock::now();
+				for (int i = 0; i < recv; i++)
+				{
+					auto type = pkt_process(rbufs[i], expectedMyIp);
+					if (type == ECHO_RES)
+					{
+						if (sendMoreProbe)
+						{
+							//it is a response. I can record time.
+							consecTimeouts = 0;
+							found = true;
+							//__sync_fetch_and_add(&tot_proc_pkts, 1);
+							elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
+							myarg->samples.at(round).push_back(elapsed);
+							if (myarg->verbose)
+							{
+								printf("echo response. %d us\n", (uint32_t)elapsed);
+							}
+							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+							if (sendMoreProbe == false)
+							{
+								//a flip of truth value means a submission to the barrier
+								std::string barrierName = CxxxxStringFormat("round %d", round);
+								rendezvous->SubmitBarrier(barrierName, worldSize);
+							}
+						}
+						else
+						{
+							printf("echo response received but not expected.\n");
+						}
+					}
+					else if (type == ECHO_REQ)
+					{
+						//someone else's request. Send response.
+						pkt_set_attribute(rbufs[i], myarg->AzureSupport);
+						pkt_prepare_reponse(rbufs[i]);
+						//let dpdk decide whether to batch or not
+						rte_eth_tx_burst(port, queue, &rbufs[i], 1);
+					}
+					rte_pktmbuf_free(rbufs[i]);
+				}
+
+				//set a 1s timeout.
+				if (sendMoreProbe)
+				{
+					//timeout and recovery only relevant if more packets are sent.
+					const size_t TIME_OUT = 1000000000ULL;
+					size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
+					if (timeDelta > TIME_OUT)
+					{
+						//1ms is long enough for us to tell the packet is lost.
+						found = true;
+						consecTimeouts++;
+						//this will trigger a resend.
+						//if (myarg->samples.size() == myarg->counter - 1)
+						//{
+						myarg->counter--;
+						//myarg->samples.push_back(TIME_OUT);
+						//choosing median. penalizing drops.
+						//myarg->samples.push_back(1000);
+						//}
+					}
+				}
+			}
+			now = std::chrono::high_resolution_clock::now();
+			while (std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count() < myarg->interval)
+			{
+				now = std::chrono::high_resolution_clock::now();
+			}
 		}
 	}
-	printf("Thread %d has finished executing.\n", myarg->tid);
+	//printf("Thread %d has finished executing.\n", myarg->tid);
 	return 0;
 }
 
@@ -445,9 +430,7 @@ int main(int argc, char **argv)
 
 	auto sid = ap.retrieve<std::string>("sid");
 
-	larg.samples.resize(size, std::vector<uin64_t>());
-	larg.IterationID = 0;
-	larg.type = pkt_type::ECHO; //(pkt_type)atoi(argv[1]);
+	larg.samples.resize(size, std::vector<uint64_t>());
 	larg.counter = samples;
 	larg.master = true; // rte_get_master_lcore() == largs[idx].CoreID;
 	larg.AzureSupport = MSFTAZ;
@@ -461,21 +444,21 @@ int main(int argc, char **argv)
 	}
 	lcore_execute(&larg);
 
-	//sleep(mysettings.run_time);
-
-	// if (mysettings.cooldown_time)
-	// {
-	//     printf("Starting cooldown\n");
-	//     phase = BENCHMARK_COOLDOWN;
-	//     sleep(mysettings.cooldown_time);
-	// }
-
-	// printf("Benchmark done\n");
-
 	printf("All threads have finished executing.\n");
 
 	/* print status */
-	//EmitFile(ap, largs, threadnum);
+	for (size_t i = 0; i < outputs.size(); i++)
+	{
+		if (i == rank)
+		{
+			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", i)).c_str());
+			for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
+			{
+				larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+			}
+			EmitFile(outputs[i], sid, dids[i], larg.samples.at(i));
+		}
+	}
 	//free(largs);
 	return 0;
 }

@@ -27,7 +27,7 @@
 #define RX_RING_SIZE 512
 #define TX_RING_SIZE 512
 #define BATCH_SIZE 36
-#define rte_eth_dev_count_avail rte_eth_dev_count
+#define rte_eth_dev_count_avail rte_eth_dev_count_avail
 #define IPV4_ADDR_LEN 4
 
 enum pkt_type
@@ -50,9 +50,9 @@ struct lcore_args
 	//the index of this arg in largs*, where a master is also included at 0.
 	//volatile enum benchmark_phase *phase;
 	struct rte_mempool* pool;
-	std::vector<vector<uint64_t>> samples;
+	std::vector<std::vector<uint64_t>> samples;
 	int counter;
-	std::vector<uint32_t> associatedPorts;
+	uint32_t associatedPort;
 	//std::vector<uint32_t> coreIdx2LCoreId;
 	bool master;
 	bool AzureSupport;
@@ -64,11 +64,6 @@ int port_init(lcore_args* larg, std::string srcIp, std::string srcMac, std::vect
 
 void CoreIdxMap(std::unordered_map<int, int>& lCore2Idx,
 	std::unordered_map<int, int>& idx2LCoreId);
-
-void EmitFile(ArgumentParser& ap,
-	lcore_args* largs,
-	int threadnum);
-
 
 void EmitFile(std::string output,
 	std::string sid,

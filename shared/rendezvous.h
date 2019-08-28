@@ -166,21 +166,21 @@ public:
 	void PushKey(std::string keyName, std::string value)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
-		var name = CxxxxStringFormat("[%s]%s", prefix.c_str(), keyName.c_str());
-		var reply = redisCommand(pContext, "SET %s %s", name.c_str(), value.c_str());
-		CHECK(reply) << pContext->errstr;
+		auto name = CxxxxStringFormat("[%s]%s", prefix.c_str(), keyName.c_str());
+		auto reply = redisCommand(pContext, "SET %s %s", name.c_str(), value.c_str());
+		assert(reply);// << pContext->errstr;
 	}
 
 	std::string waitForKey(std::string keyName)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
-		var name = CxxxxStringFormat("[%s]%s", prefix.c_str(), keyName.c_str());
+		auto name = CxxxxStringFormat("[%s]%s", prefix.c_str(), keyName.c_str());
 		std::string result;
 		while (true)
 		{
-			var reply = redisCommand(pContext, "GET %s", name.c_str());
-			CHECK(reply) << pContext->errstr;
-			var pReply = (redisReply *)reply;
+			auto reply = redisCommand(pContext, "GET %s", name.c_str());
+			assert(reply) ;//<< pContext->errstr;
+			auto pReply = (redisReply *)reply;
 			if (pReply->len != 0)
 			{
 				result = std::string(pReply->str);
@@ -188,22 +188,8 @@ public:
 			}
 			usleep(50000);
 		}
-		CHECK(result.size());
+		assert(result.size());
 		return result;
-	}
-
-	bool TryFetchKey(std::string keyName, std::string &value)
-	{
-		std::lock_guard<std::recursive_mutex> lock(mutex);
-		var name = CxxxxStringFormat("[%s]%s", prefix.c_str(), keyName.c_str());
-		std::string result;
-		var reply = redisCommand(pContext, "GET %s", name.c_str());
-		if (reply == NULL || ((redisReply *)reply)->len == 0)
-		{
-			return false;
-		}
-		value = std::string(((redisReply *)reply)->str);
-		return true;
 	}
 
 	void Shutdown()
