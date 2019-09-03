@@ -336,12 +336,12 @@ int main(int argc, char **argv)
 	ap.addArgument("--rendezvous", 1, false);
 	
 	//ap.addArgument("--rendezvousPrefix", 1, false);
-	int counter = 20;
-	while(counter > 0)
-	  {
-	    sleep(1);
-	    counter--;
-	  }
+	//int counter = 20;
+	//while(counter > 0)
+	//  {
+	//    sleep(1);
+	//    counter--;
+	//  }
 	ap.parse(argc, (const char **)argv);
 
 	std::string localIP = ap.retrieve<std::string>("srcIp");
