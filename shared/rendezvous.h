@@ -29,7 +29,7 @@ void ParseHostPortPrefixWorldSizeRank(std::string combo, std::string &host, uint
 {
 	//host,port,prefix,worldsize,rank
 	auto redisVec = CxxxxStringSplit(combo, ':');
-	assert(redisVec.size() == 3);
+	assert(redisVec.size() == 5);
 	host = redisVec[0];
 	port = atoi(redisVec[1].c_str());
 	prefix = redisVec[2];
