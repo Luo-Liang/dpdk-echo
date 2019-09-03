@@ -324,7 +324,7 @@ int main(int argc, char **argv)
 	ap.addArgument("--dstMacs", '+', false);
 	ap.addArgument("--samples", 1, false);
 	ap.addArgument("--sid", 1, false);
-	ap.addArgument("--dids", +, false);
+	ap.addArgument("--dids", '+', false);
 	ap.addArgument("--blocked", true);
 	ap.addArgument("--outputs", '+', false);
 	//enable Windows Azure support
