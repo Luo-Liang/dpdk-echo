@@ -438,6 +438,7 @@ int main(int argc, char **argv)
 	larg.interval = interval;
 	larg.verbose = verbose;
 	larg.selfProbe = !noSelfProbe;
+	larg.dsts.resize(dstMacs.size());
 	for (int i = 0; i < dstMacs.size(); i++)
 	{
 		IPFromString(dstIps.at(i), larg.dsts.at(i).ip);
