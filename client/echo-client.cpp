@@ -323,10 +323,10 @@ int main(int argc, char **argv)
 	ap.addArgument("--dstIps", '+', false);
 	ap.addArgument("--dstMacs", '+', false);
 	ap.addArgument("--samples", 1, false);
-	ap.addArgument("--sid", 1, true);
-	ap.addArgument("--dids", 1, true);
+	ap.addArgument("--sid", 1, false);
+	ap.addArgument("--dids", +, false);
 	ap.addArgument("--blocked", true);
-	ap.addArgument("--outputs", '+', true);
+	ap.addArgument("--outputs", '+', false);
 	//enable Windows Azure support
 	ap.addArgument("--interval", 1, true);
 	ap.addArgument("--az", 1, true);
@@ -398,6 +398,7 @@ int main(int argc, char **argv)
 	int size;
 	int rank;
 	/* Start applications */
+	//host,port,prefix,worldsize,rank
 	ParseHostPortPrefixWorldSizeRank(combo, host, port, prefix, size, rank);
 	//string ip, uint port, string pref = "PLINK"
 	rendezvous = new NonblockingSingleBarrier(host, port, prefix);
