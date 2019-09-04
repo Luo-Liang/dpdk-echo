@@ -218,6 +218,10 @@ lcore_execute(void *arg)
 				int recv = 0;
 				if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
 				{
+					if (myarg->verbose)
+					{
+						printf("echo request sent.\n");
+					}
 					rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
 				}
 				end = std::chrono::high_resolution_clock::now();
@@ -236,7 +240,7 @@ lcore_execute(void *arg)
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
-								printf("echo response. %d us\n", (uint32_t)elapsed);
+								printf("echo response received. %d us\n", (uint32_t)elapsed);
 							}
 							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
 							if (sendMoreProbe == false)
@@ -334,7 +338,7 @@ int main(int argc, char **argv)
 	ap.addArgument("--payload", 1, true);
 	ap.addArgument("--noSelfProbe", 1, true);
 	ap.addArgument("--rendezvous", 1, false);
-	
+
 	//ap.addArgument("--rendezvousPrefix", 1, false);
 	//int counter = 20;
 	//while(counter > 0)
