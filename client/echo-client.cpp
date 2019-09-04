@@ -210,6 +210,11 @@ lcore_execute(void *arg)
 				{
 					rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
 				}
+				else if (myarg->verbose)
+				{
+					printf("[%d] echo request sent.\n", myarg->ID);
+					pkt_dump(pBuf);
+				}
 			}
 			/* free non-sent buffers */
 			bool found = false;
@@ -218,12 +223,10 @@ lcore_execute(void *arg)
 				int recv = 0;
 				if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
 				{
-					if (myarg->verbose)
-					{
-						printf("echo request sent.\n");
-					}
+
 					rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
 				}
+
 				end = std::chrono::high_resolution_clock::now();
 				for (int i = 0; i < recv; i++)
 				{
@@ -240,7 +243,8 @@ lcore_execute(void *arg)
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
-								printf("echo response received. %d us\n", (uint32_t)elapsed);
+								printf("[%d] echo response received. %d us\n", myarg->ID, (uint32_t)elapsed);
+								pkt_dump(rbufs[i]);
 							}
 							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
 							if (sendMoreProbe == false)
@@ -257,11 +261,21 @@ lcore_execute(void *arg)
 					}
 					else if (type == ECHO_REQ)
 					{
+						if (myarg->verbose)
+						{
+							printf("[%d] echo request received. %d us\n", myarg->ID, (uint32_t)elapsed);
+							pkt_dump(rbufs[i]);
+						}
 						//someone else's request. Send response.
 						pkt_set_attribute(rbufs[i], myarg->AzureSupport);
 						pkt_prepare_reponse(rbufs[i]);
 						//let dpdk decide whether to batch or not
 						rte_eth_tx_burst(port, queue, &rbufs[i], 1);
+						if (myarg->verbose)
+						{
+							printf("[%d] echo request responded. %d us\n",  myarg->ID, (uint32_t)elapsed);
+							pkt_dump(rbufs[i]);
+						}
 					}
 					rte_pktmbuf_free(rbufs[i]);
 				}
@@ -414,6 +428,7 @@ int main(int argc, char **argv)
 	rendezvous = new NonblockingSingleBarrier(host, port, prefix);
 	rendezvous->Connect();
 	rendezvous->SynchronousBarrier("initial", size);
+	larg.ID = rank;
 
 	ret = port_init(&larg, localIP, localMAC, blockedIFs);
 	if (ret != 0)
