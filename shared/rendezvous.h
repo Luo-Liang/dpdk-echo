@@ -10,6 +10,8 @@
 #include <thread> 
 #include <mutex>
 #include <atomic>
+#include <thread>
+#include <memory>
 
 using namespace std;
 
@@ -61,6 +63,7 @@ class NonblockingSingleBarrier
 	std::recursive_mutex mutex;
 	std::string name;
 	int worldSize;
+	std::shared_ptr<std::thread> worker;
 
 	void RoutineLoop()
 	{
@@ -105,7 +108,7 @@ public:
 
 	NonblockingSingleBarrier(string ip, uint port, string pref = "PLINK") : IP(ip), Port(port), prefix(pref)
 	{
-
+		worker = std::make_shared<std::thread>(&NonblockingSingleBarrier::RoutineLoop, this);
 	}
 
 	~NonblockingSingleBarrier()
