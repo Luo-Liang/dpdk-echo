@@ -101,7 +101,7 @@ int ProbeSelfLatency(void *arg)
 	//printf("here3");
 	rte_mbuf_refcnt_set(pBuf, selfProbeCount);
 	auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-	pkt_build(pkt_ptr, myarg->src, myarg->src, myarg->AzureSupport);
+	pkt_build(pkt_ptr, myarg->src, myarg->src, myarg->AzureSupport, pkt_type::ECHO_REQ);
 	//pkt_dump(pBuf);
 	//printf("here2");
 	struct rte_mbuf *rbufs[BATCH_SIZE];
@@ -185,12 +185,22 @@ lcore_execute(void *arg)
 		//let me create a batch of packets that i will be using all the time, which is one.
 		if (pBuf == NULL)
 		{
-			rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
+			rte_exit(EXIT_FAILURE, "Error: request pktmbuf pool allocation failed.");
 		}
-		rte_mbuf_refcnt_set(pBuf, myarg->counter);
+		rte_mbuf_refcnt_set(pBuf, samples);
 		auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-		pkt_build(pkt_ptr, myarg->src, myarg->dsts.at(round), myarg->AzureSupport);
+		pkt_build(pkt_ptr, myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_REQ);
 		pkt_set_attribute(pBuf, myarg->AzureSupport);
+
+		auto responseBuf = rte_pktmbuf_alloc(myarg->pool);
+		if (responseBuf == NULL)
+		{
+			rte_exit(EXIT_FAILURE, "Error: response pktmbuf pool allocation failed.");
+		}
+		rte_mbuf_refcnt_set(responseBuf, samples);
+		auto response_pkt_ptr = rte_pktmbuf_append(responseBuf, pkt_size());
+		pkt_build(response_pkt_ptr, myarg->dsts.at(round), myarg->src, myarg->AzureSupport, pkt_type::ECHO_RES);
+		pkt_set_attribute(responseBuf, myarg->AzureSupport);
 
 		int consecTimeouts = 0;
 		myarg->counter = samples;
@@ -267,14 +277,15 @@ lcore_execute(void *arg)
 							pkt_dump(rbufs[i]);
 						}
 						//someone else's request. Send response.
-						pkt_set_attribute(rbufs[i], myarg->AzureSupport);
-						pkt_prepare_reponse(rbufs[i]);
 						//let dpdk decide whether to batch or not
-						rte_eth_tx_burst(port, queue, &rbufs[i], 1);
+						if (0 > rte_eth_tx_burst(port, queue, &responseBuf, 1))
+						{
+							rte_exit(EXIT_FAILURE, "Error: response send failed\n");
+						}
 						if (myarg->verbose)
 						{
-							printf("[%d] echo request responded. %d us\n",  myarg->ID, (uint32_t)elapsed);
-							pkt_dump(rbufs[i]);
+							printf("[%d] echo request responded. %d us\n", myarg->ID, (uint32_t)elapsed);
+							pkt_dump(responseBuf);
 						}
 					}
 					rte_pktmbuf_free(rbufs[i]);

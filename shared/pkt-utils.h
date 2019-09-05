@@ -27,10 +27,11 @@ uint16_t pkt_size();
 void pkt_build(char *pkt_ptr,
                endhost &src,
                endhost &des,
-               bool manualCksum);
+               bool manualCksum,
+               pkt_type type);
 void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum);
 uint16_t udp_checksum(udphdr *, uint32_t, uint32_t);
-void pkt_prepare_reponse(struct rte_mbuf* buf);
+void pkt_prepare_reponse(char* pkt_ptr);
 pkt_type pkt_process(rte_mbuf* buf, uint32_t ip);
 void pkt_prepare_request(char* pkt_ptr);
 

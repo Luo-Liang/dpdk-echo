@@ -12,7 +12,7 @@
 #include <string>
 #include <stdexcept>
 
- /* Marcos */
+/* Marcos */
 #define ETHER_HEADER_LEN 14
 #define IP_HEADER_LEN 20
 #define UDP_HEADER_LEN 8
@@ -23,9 +23,9 @@ void MACFromString(std::string str, uint8_t Bytes[6])
 {
 	int bytes[6];
 	if (std::sscanf(str.c_str(),
-		"%02x:%02x:%02x:%02x:%02x:%02x",
-		&bytes[0], &bytes[1], &bytes[2],
-		&bytes[3], &bytes[4], &bytes[5]) != 6)
+					"%02x:%02x:%02x:%02x:%02x:%02x",
+					&bytes[0], &bytes[1], &bytes[2],
+					&bytes[3], &bytes[4], &bytes[5]) != 6)
 	{
 		throw std::runtime_error(str + std::string(" is an invalid MAC address"));
 	}
@@ -113,7 +113,7 @@ ip_2_uint32(uint8_t ip[])
 }
 
 static inline void
-pkt_swap_address(struct common_hdr* comhdr)
+pkt_swap_address(struct common_hdr *comhdr)
 {
 	uint8_t tmp_mac[ETHER_ADDR_LEN];
 	uint32_t tmp_ip;
@@ -126,7 +126,7 @@ pkt_swap_address(struct common_hdr* comhdr)
 
 	// SRC -> DST
 	rte_memcpy(comhdr->ether.d_addr.addr_bytes, comhdr->ether.s_addr.addr_bytes,
-		ETHER_ADDR_LEN);
+			   ETHER_ADDR_LEN);
 	comhdr->ip.dst_addr = comhdr->ip.src_addr;
 	comhdr->udp.dst_port = comhdr->udp.src_port;
 
@@ -141,12 +141,13 @@ pkt_swap_address(struct common_hdr* comhdr)
 	//comhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&comhdr->ip, &comhdr->udp);
 }
 
-void pkt_build(char* pkt_ptr,
-	endhost& src,
-	endhost& des,
-	bool manualCksum)
+void pkt_build(char *pkt_ptr,
+			   endhost &src,
+			   endhost &des,
+			   bool manualCksum,
+			   pkt_type type)
 {
-	common_hdr* myhdr = (struct common_hdr*)pkt_ptr;
+	common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
 
 	// Ethernet header
 	rte_memcpy(myhdr->ether.d_addr.addr_bytes, des.mac, ETHER_ADDR_LEN);
@@ -171,37 +172,44 @@ void pkt_build(char* pkt_ptr,
 	myhdr->udp.src_port = htons(UDP_SRC_PORT);
 	myhdr->udp.dst_port = htons(UDP_DES_PORT);
 	myhdr->udp.dgram_len = htons(pkt_size() - ETHER_HEADER_LEN - IP_HEADER_LEN); // -
-		//UDP_HEADER_LEN;
-	pkt_prepare_request(pkt_ptr);
+	//UDP_HEADER_LEN;
+	if (type == pkt_type::ECHO_REQ)
+	{
+		pkt_prepare_request(pkt_ptr);
+	}
+	else if(type == pkt_type::ECHO_RES)
+	{
+		pkt_prepare_reponse(pkt_ptr);
+	}
 	myhdr->udp.dgram_cksum = 0;
 	//if(manualCksum)
 	//{
 	myhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&myhdr->ip, &myhdr->udp); // | 0; // uhdr.uh_sum = htons(0xba29);
-//}
-//myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
-//printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
+	//}
+	//myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
+	//printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
 }
 
-void pkt_set_attribute(struct rte_mbuf* buf, bool manualCksum)
+void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum)
 {
 	buf->ol_flags |= PKT_TX_IPV4;
 	if (manualCksum == false)
 	{
-		//buf->ol_flags |= PKT_TX_IP_CKSUM; 
+		//buf->ol_flags |= PKT_TX_IP_CKSUM;
 	}
 	buf->l2_len = sizeof(struct ether_hdr);
 	buf->l3_len = sizeof(struct ipv4_hdr);
 }
 
-void pkt_prepare_request(char* pkt_ptr)
+void pkt_prepare_request(char *pkt_ptr)
 {
-	echo_hdr* mypkt = (echo_hdr*)pkt_ptr;
+	echo_hdr *mypkt = (echo_hdr *)pkt_ptr;
 	rte_memcpy(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN);
 }
 
-pkt_type pkt_process(rte_mbuf* buf, uint32_t ip)
+pkt_type pkt_process(rte_mbuf *buf, uint32_t ip)
 {
-	echo_hdr* mypkt = rte_pktmbuf_mtod(buf, echo_hdr*);
+	echo_hdr *mypkt = rte_pktmbuf_mtod(buf, echo_hdr *);
 	if (mypkt->pro_hdr.ip.dst_addr == ip)
 	{
 		if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
@@ -223,14 +231,13 @@ pkt_type pkt_process(rte_mbuf* buf, uint32_t ip)
 	}
 }
 
-void pkt_prepare_reponse(struct rte_mbuf* buf)
+void pkt_prepare_reponse(char *pkt_ptr)
 {
-	struct echo_hdr* mypkt = rte_pktmbuf_mtod(buf, struct echo_hdr*);
+	echo_hdr *mypkt = (echo_hdr *)pkt_ptr;
 	rte_memcpy(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN);
-	pkt_swap_address(&mypkt->pro_hdr);
 }
 
-void pkt_dump(struct rte_mbuf* buf)
+void pkt_dump(struct rte_mbuf *buf)
 {
 	printf("Packet info:\n");
 	rte_pktmbuf_dump(stdout, buf, rte_pktmbuf_pkt_len(buf));
