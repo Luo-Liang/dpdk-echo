@@ -199,7 +199,7 @@ lcore_execute(void *arg)
 		}
 		rte_mbuf_refcnt_set(responseBuf, samples);
 		auto response_pkt_ptr = rte_pktmbuf_append(responseBuf, pkt_size());
-		pkt_build(response_pkt_ptr, myarg->dsts.at(round), myarg->src, myarg->AzureSupport, pkt_type::ECHO_RES);
+		pkt_build(response_pkt_ptr, myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_RES);
 		pkt_set_attribute(responseBuf, myarg->AzureSupport);
 
 		int consecTimeouts = 0;
