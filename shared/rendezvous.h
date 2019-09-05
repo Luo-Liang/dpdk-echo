@@ -7,7 +7,7 @@
 #include <mutex>
 #include <assert.h>
 #include <sstream>
-#include <thread> 
+#include <thread>
 #include <mutex>
 #include <atomic>
 #include <thread>
@@ -27,7 +27,7 @@ std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter)
 	return tokens;
 }
 
-void ParseHostPortPrefixWorldSizeRank(std::string combo, std::string &host, uint16_t &port, std::string &prefix, int& ws, int& rank)
+void ParseHostPortPrefixWorldSizeRank(std::string combo, std::string &host, uint16_t &port, std::string &prefix, int &ws, int &rank)
 {
 	//host,port,prefix,worldsize,rank
 	auto redisVec = CxxxxStringSplit(combo, ':');
@@ -67,35 +67,39 @@ class NonblockingSingleBarrier
 
 	void RoutineLoop()
 	{
-		mutex.lock();
-		auto workName = name;
-		mutex.unlock();
-		while(workName != "")
+		while (true)
 		{
-			auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
-			auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
-			assert(replyInc); // << pContext->errstr;
-			//CHECK(reply) << pContext->errstr;
-			while (true)
+			mutex.lock();
+			auto workName = name;
+			mutex.unlock();
+			while (workName != "")
 			{
-				//100ms.
-				//64 -> 1.6ms/req
-				usleep(100000);
-				//try to see how many we have now.
-				auto reply = redisCommand(pContext, "GET %s", str.c_str());
-				assert(reply); // << pContext->errstr;
-				auto pReply = (redisReply*)reply;
-				assert(pReply->type == REDIS_REPLY_STRING);
-				if (atoi(pReply->str) == worldSize)
+				auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
+				auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
+				assert(replyInc); // << pContext->errstr;
+				//CHECK(reply) << pContext->errstr;
+				while (true)
 				{
-					mutex.lock();
-					if(workName == name)
+					//100ms.
+					//64 -> 1.6ms/req
+					usleep(100000);
+					//try to see how many we have now.
+					auto reply = redisCommand(pContext, "GET %s", str.c_str());
+					assert(reply); // << pContext->errstr;
+					auto pReply = (redisReply *)reply;
+					assert(pReply->type == REDIS_REPLY_STRING);
+					if (atoi(pReply->str) == worldSize)
 					{
-						name = "";
+						mutex.lock();
+						if (workName == name)
+						{
+							name = "";
+						}
+						mutex.unlock();
 					}
-					mutex.unlock();
 				}
 			}
+			usleep(100000);
 		}
 	}
 
@@ -172,7 +176,7 @@ public:
 		std::lock_guard<std::recursive_mutex> lock(mutex);
 		auto name = CxxxxStringFormat("[%s]%s", prefix.c_str(), keyName.c_str());
 		auto reply = redisCommand(pContext, "SET %s %s", name.c_str(), value.c_str());
-		assert(reply);// << pContext->errstr;
+		assert(reply); // << pContext->errstr;
 	}
 
 	std::string waitForKey(std::string keyName)
@@ -183,7 +187,7 @@ public:
 		while (true)
 		{
 			auto reply = redisCommand(pContext, "GET %s", name.c_str());
-			assert(reply) ;//<< pContext->errstr;
+			assert(reply); //<< pContext->errstr;
 			auto pReply = (redisReply *)reply;
 			if (pReply->len != 0)
 			{

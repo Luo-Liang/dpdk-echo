@@ -205,6 +205,7 @@ lcore_execute(void *arg)
 		int consecTimeouts = 0;
 		myarg->counter = samples;
 		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round), worldSize);
 		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier() == false)
 		{
 			auto port = myarg->associatedPort;
