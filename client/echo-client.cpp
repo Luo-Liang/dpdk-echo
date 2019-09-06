@@ -178,7 +178,7 @@ lcore_execute(void *arg)
 	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
 	int worldSize = myarg->dsts.size();
 	int samples = myarg->counter;
-	for (int round = 0; round < myarg->dsts.size(); round++)
+	for (int round = 0; round < myarg->dsts.size() - 1; round++)
 	{
 		auto pBuf = rte_pktmbuf_alloc(myarg->pool);
 		//ready up pBufs.
