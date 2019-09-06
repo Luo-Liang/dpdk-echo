@@ -151,6 +151,7 @@ int ProbeSelfLatency(void *arg)
 		}
 	}
 	//these are measured in microseconds.
+	printf("[%d] self probe latency = %d\n", myarg->ID, 2 * 1000 * (elapsed / PROBE_COUNT));
 	return 2 * 1000 * (elapsed / PROBE_COUNT);
 }
 NonblockingSingleBarrier *rendezvous;
@@ -234,13 +235,11 @@ lcore_execute(void *arg)
 			while ((found == false && sendMoreProbe == true) || (sendMoreProbe == false && rendezvous->NonBlockingQueryBarrier() == false))
 			{
 				int recv = 0;
-				end = std::chrono::high_resolution_clock::now();
 				if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
 				{
-
 					rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
 				}
-
+				end = std::chrono::high_resolution_clock::now();
 				for (int i = 0; i < recv; i++)
 				{
 					auto type = pkt_process(rbufs[i], expectedMyIp);
