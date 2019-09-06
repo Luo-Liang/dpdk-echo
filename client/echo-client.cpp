@@ -206,6 +206,8 @@ lcore_execute(void *arg)
 		myarg->counter = samples;
 		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
 		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round), worldSize);
+		consecTimeouts = 0;
+
 		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier() == false)
 		{
 			auto port = myarg->associatedPort;
@@ -232,13 +234,13 @@ lcore_execute(void *arg)
 			while ((found == false && sendMoreProbe == true) || (sendMoreProbe == false && rendezvous->NonBlockingQueryBarrier() == false))
 			{
 				int recv = 0;
+				end = std::chrono::high_resolution_clock::now();
 				if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
 				{
 
 					rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed\n");
 				}
 
-				end = std::chrono::high_resolution_clock::now();
 				for (int i = 0; i < recv; i++)
 				{
 					auto type = pkt_process(rbufs[i], expectedMyIp);
@@ -257,7 +259,7 @@ lcore_execute(void *arg)
 								printf("[%d] echo response received. %d us\n", myarg->ID, (uint32_t)elapsed);
 								pkt_dump(rbufs[i]);
 							}
-							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter);
 							if (sendMoreProbe == false)
 							{
 								//a flip of truth value means a submission to the barrier
@@ -311,6 +313,13 @@ lcore_execute(void *arg)
 						//choosing median. penalizing drops.
 						//myarg->samples.push_back(1000);
 						//}
+						sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+						if (sendMoreProbe == false)
+						{
+							//a flip of truth value means a submission to the barrier
+							std::string barrierName = CxxxxStringFormat("round %d", round);
+							rendezvous->SubmitBarrier(barrierName, worldSize);
+						}
 					}
 				}
 			}
