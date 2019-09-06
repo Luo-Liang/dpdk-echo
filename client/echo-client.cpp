@@ -277,7 +277,7 @@ lcore_execute(void *arg)
 					{
 						if (myarg->verbose)
 						{
-							printf("[%d] echo request received. %d us\n", myarg->ID, (uint32_t)elapsed);
+							printf("[%d] echo request received. \n", myarg->ID);//, (uint32_t)elapsed);
 							pkt_dump(rbufs[i]);
 						}
 						//someone else's request. Send response.
@@ -288,7 +288,7 @@ lcore_execute(void *arg)
 						}
 						if (myarg->verbose)
 						{
-							printf("[%d] echo request responded. %d us\n", myarg->ID, (uint32_t)elapsed);
+							printf("[%d] echo request responded. \n", myarg->ID);//, (uint32_t)elapsed);
 							pkt_dump(responseBuf);
 						}
 					}
