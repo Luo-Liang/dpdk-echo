@@ -74,7 +74,7 @@ class NonblockingSingleBarrier
 			mutex.unlock();
 			while (workName != "")
 			{
-				//auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
+				auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
 				//auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
 				//assert(replyInc); // << pContext->errstr;
 				//CHECK(reply) << pContext->errstr;
