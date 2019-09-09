@@ -252,8 +252,13 @@ void EmitFile(ArgumentParser &ap,
                 max = std::max(max, t);
                 avg += t;
             }
+	    sort(largs[i].samples.begin(), largs[i].samples.end()); 
             cntr += largs[i].samples.size();
+	    if(largs[i].samples.size() > 0)
+	      {
+		printf("MIN = %d, MAX = %d, AVG = %d. P10 = %d, P50 = %d, CNT = %d\n", (int)min, (int)max, (int)(avg / cntr), largs[i].samples.at(largs[i].samples.size() / 10), largs[i].samples.at(largs[i].samples.size() / 2),(int)cntr);
+	      }
         }
-        printf("MIN = %d, MAX = %d, AVG = %d. CNT = %d\n", (int)min, (int)max, (int)(avg / cntr), (int)cntr);
+
     }
 }

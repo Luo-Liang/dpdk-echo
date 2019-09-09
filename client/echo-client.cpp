@@ -83,6 +83,8 @@ pkt_dump(struct rte_mbuf *buf)
 //     return std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count();
 // }
 
+
+//assumes no packet is duplicated by the network.
 int ProbeSelfLatency(void *arg)
 {
     //printf("here1");
@@ -155,10 +157,17 @@ int ProbeSelfLatency(void *arg)
     //divide by PROBE_COUNT Instead of accepted count is to deal with
     //since we have relatively small amount of probes, we're more confident if there are more probes coming back, less 
     //confident if there are fewer probes coing back. IMagine if only 1 probe coming back and that probe
-    //is skewed, using accepted count will make the probe very unreliable, but instead, dividing it by PROBE_COUNT "improves" this effect.
+    //is skewed, using accepted count will make the probe very unreliable, but instead, dividing it by PROBE_COUNT makes this effect less prominent.
     //Probably not the best strategy in that situation, but as a first version.
-    printf("Self probe accepted = %d/%d\n", accepted, PROBE_COUNT);
-    return (int)2 * 1000 * (1.0 * elapsed / PROBE_COUNT);
+
+    //At most PROBE_COUNT/2 probes are sent.
+    //This estimates the self-probe distance between the host, (potentially ToR) and back.
+    //under estimate this value by integer division 2 * (elapsed / PROBE_COUNT)
+
+    // on Azure, if the FPGA adds 2us per direction, anything lower than 2us shouldn't be counted.
+    //this sort of filters out everything is most reading is < 2us.
+    printf("Self probe accepted = %d/%d\n", accepted, PROBE_COUNT / 2);
+    return (int)2 * 1000 * (elapsed / PROBE_COUNT);
 }
 
 static int
@@ -226,6 +235,7 @@ lcore_jitter(void *args)
     }
 }
 
+//assumes network don't duplicate packets.
 static int
 lcore_execute(void *arg)
 {
