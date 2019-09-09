@@ -152,7 +152,12 @@ int ProbeSelfLatency(void *arg)
         }
     }
     //these are measured in microseconds.
-    return (int)2 * 1000 * (1.0 * elapsed / accepted);
+    //divide by PROBE_COUNT Instead of accepted count is to deal with
+    //since we have relatively small amount of probes, we're more confident if there are more probes coming back, less 
+    //confident if there are fewer probes coing back. IMagine if only 1 probe coming back and that probe
+    //is skewed, using accepted count will make the probe very unreliable, but instead, dividing it by PROBE_COUNT "improves" this effect.
+    //Probably not the best strategy in that situation, but as a first version.
+    return (int)2 * 1000 * (1.0 * elapsed / PROBE_COUNT);
 }
 
 static int
