@@ -107,6 +107,7 @@ int ProbeSelfLatency(void *arg)
     struct timeval start, end;
 
     int elapsed = 0;
+    int accepted = 0;
     uint32_t selfProbeIP = ip_2_uint32(myarg->srcs.at(0).ip);
     while (selfProbeCount-- > 0)
     {
@@ -130,6 +131,7 @@ int ProbeSelfLatency(void *arg)
                 {
                     found = true;
                     selfProbeCount--;
+                    accepted++;
                     auto diff = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
                     elapsed += diff;
                 }
@@ -150,7 +152,7 @@ int ProbeSelfLatency(void *arg)
         }
     }
     //these are measured in microseconds.
-    return 2 * 1000 * (elapsed / PROBE_COUNT);
+    return 2 * 1000 * (elapsed / accepted);
 }
 
 static int
