@@ -152,7 +152,7 @@ int ProbeSelfLatency(void *arg)
         }
     }
     //these are measured in microseconds.
-    return 2 * 1000 * (elapsed / accepted);
+    return (int)2 * 1000 * (1.0 * elapsed / accepted);
 }
 
 static int
