@@ -157,6 +157,7 @@ int ProbeSelfLatency(void *arg)
     //confident if there are fewer probes coing back. IMagine if only 1 probe coming back and that probe
     //is skewed, using accepted count will make the probe very unreliable, but instead, dividing it by PROBE_COUNT "improves" this effect.
     //Probably not the best strategy in that situation, but as a first version.
+    printf("Self probe accepted = %d/%d\n", accepted, PROBE_COUNT);
     return (int)2 * 1000 * (1.0 * elapsed / PROBE_COUNT);
 }
 
