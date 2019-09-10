@@ -101,6 +101,7 @@ pkt_size()
 	uint16_t ret;
 	ret = ETHER_HEADER_LEN + IP_HEADER_LEN + UDP_HEADER_LEN;
 	ret += ECHO_PAYLOAD_LEN;
+	ret += sizeof(int);
 	return ret;
 }
 
