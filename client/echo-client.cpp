@@ -529,14 +529,17 @@ int main(int argc, char **argv)
 	printf("All threads have finished executing.\n");
 
 	/* print status */
-	for (size_t i = 0; i < outputs.size(); i++)
+	for (size_t i = 0; i < size; i++)
 	{
-		auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", i)).c_str());
-		for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
+		if (i != rank)
 		{
-			larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", i)).c_str());
+			for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
+			{
+				larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+			}
+			EmitFile(outputs[i], sid, dids[i], larg.samples.at(i));
 		}
-		EmitFile(outputs[i], sid, dids[i], larg.samples.at(i));
 	}
 	//free(largs);
 	return 0;
