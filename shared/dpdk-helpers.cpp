@@ -236,7 +236,7 @@ void EmitFile(ArgumentParser &ap,
             }
         }
         ofile.close();
-
+        printf("file written to %s\r\n", file.c_str());	
 
 
 	auto noSelfProbeFileStr = "NOSELF" + ap.retrieve<std::string>("output");
