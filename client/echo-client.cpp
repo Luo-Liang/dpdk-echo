@@ -143,7 +143,7 @@ int ProbeSelfLatency(void *arg)
 				rte_pktmbuf_free(rbufs[i]);
 			}
 			size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-			if (found == false && timeDelta > 1000000)
+			if (found == false && timeDelta > 100000000)
 			{
 				//1ms sec is long enough for us to tell the packet is lost.
 				found = true;
