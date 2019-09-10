@@ -268,7 +268,7 @@ lcore_execute(void *arg)
     }
 
     int selfLatency = 0;
-    if (myarg->selfProbe)
+    if (false && myarg->selfProbe)
     {
         selfLatency = ProbeSelfLatency(arg);
         printf("Thread %d self probe latency = %d.\n", myarg->tid, (uint32_t)selfLatency);
