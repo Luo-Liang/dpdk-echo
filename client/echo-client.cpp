@@ -243,7 +243,7 @@ static int lcore_execute(void *arg)
 				}
 				else if (myarg->verbose)
 				{
-					printf("[%d] echo request sent.\n", myarg->ID);
+					printf("[%d] echo request sent. pid = %d.\n", myarg->ID, pid);
 					pkt_dump(reqMBufs[pid]);
 				}
 			}
@@ -273,7 +273,7 @@ static int lcore_execute(void *arg)
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
-								printf("[%d] echo response received. %d us\n", myarg->ID, (uint32_t)elapsed);
+								printf("[%d] echo response received. %d us. seq = %d\n", myarg->ID, (uint32_t)elapsed, seq);
 								pkt_dump(rbufs[i]);
 							}
 							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter);
@@ -538,7 +538,7 @@ int main(int argc, char **argv)
 			{
 				larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
 			}
-			EmitFile(outputs[i], sid, dids[i], larg.samples.at(i));
+			EmitFile(outputs.at(i), sid, dids[i], larg.samples.at(i));
 		}
 	}
 	//free(largs);
