@@ -92,7 +92,7 @@ int ProbeSelfLatency(void *arg)
 	auto port = myarg->associatedPort;
 	auto pBuf = rte_pktmbuf_alloc(pool);
 	auto queue = 0;
-	const int PROBE_COUNT = 1000;
+	const int PROBE_COUNT = 10000;
 	int selfProbeCount = PROBE_COUNT;
 	if (pBuf == NULL)
 	{
@@ -106,13 +106,16 @@ int ProbeSelfLatency(void *arg)
 	//pkt_dump(pBuf);
 	//printf("here2");
 	struct rte_mbuf *rbufs[BATCH_SIZE];
-	struct timeval start, end;
 
-	int elapsed = 0;
+	auto start = std::chrono::high_resolution_clock::now();
+	auto end = std::chrono::high_resolution_clock::now();
+
+	size_t elapsed = 0;
 	uint32_t selfProbeIP = ip_2_uint32(myarg->src.ip);
+	int counts = 0;
 	while (selfProbeCount > 0)
 	{
-		gettimeofday(&start, NULL);
+		start = std::chrono::high_resolution_clock::now();
 		if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
 		{
 			rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
@@ -125,7 +128,7 @@ int ProbeSelfLatency(void *arg)
 			{
 				rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed in self probe\n");
 			}
-			gettimeofday(&end, NULL);
+			end = std::chrono::high_resolution_clock::now();
 			for (int i = 0; i < recv; i++)
 			{
 				int seq = 0;
@@ -133,13 +136,14 @@ int ProbeSelfLatency(void *arg)
 				{
 					found = true;
 					selfProbeCount--;
-					auto diff = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+					counts++;
+					auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 					elapsed += diff;
 				}
 				rte_pktmbuf_free(rbufs[i]);
 			}
-			long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-			if (found == false && timeDelta > 1000)
+			size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+			if (found == false && timeDelta > 1000000)
 			{
 				//1ms sec is long enough for us to tell the packet is lost.
 				found = true;
@@ -152,9 +156,8 @@ int ProbeSelfLatency(void *arg)
 			}
 		}
 	}
-	//these are measured in microseconds.
-	auto ret = (int)1000.0 * elapsed / PROBE_COUNT;
-	printf("[%d] self probe latency = %d\n", myarg->ID, ret);
+	int ret = (int)(1.0 * elapsed / PROBE_COUNT);
+	printf("[%d] self probe latency = %d. %d/%d.\n", myarg->ID, ret, counts, PROBE_COUNT);
 	return ret;
 }
 NonblockingSingleBarrier *rendezvous;
