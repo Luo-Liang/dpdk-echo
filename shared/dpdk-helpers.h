@@ -23,7 +23,7 @@
 #include <fstream>
 
 #define NUM_MBUFS 65535
-#define MBUF_CACHE_SIZE 13107
+#define MBUF_CACHE_SIZE 255
 #define RX_RING_SIZE 512
 #define TX_RING_SIZE 512
 #define BATCH_SIZE 36
