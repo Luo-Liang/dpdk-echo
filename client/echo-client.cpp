@@ -200,7 +200,7 @@ static int lcore_execute(void *arg)
 	//phase = myarg->phase;
 	//bsz = BATCH_SIZE;
 	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
-	int worldSize = myarg->dsts.size();
+	int worldSize = myarg->worldSize;
 	int samples = myarg->counter;
 
 	rte_mbuf **reqMBufs;
@@ -474,6 +474,7 @@ int main(int argc, char **argv)
 	//host,port,prefix,worldsize,rank
 	ParseHostPortPrefixWorldSizeRank(combo, host, port, prefix, size, rank);
 	//string ip, uint port, string pref = "PLINK"
+	larg.worldSize = size;
 	rendezvous = new NonblockingSingleBarrier(host, port, prefix);
 	rendezvous->Connect();
 	rendezvous->SynchronousBarrier("initial", size);

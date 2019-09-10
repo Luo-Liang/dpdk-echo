@@ -59,6 +59,7 @@ struct lcore_args
 	int interval;
 	bool verbose;
 	bool selfProbe;
+	int worldSize;
 	int ID;
 }; //__attribute__((packed));
 int port_init(lcore_args* larg, std::string srcIp, std::string srcMac, std::vector<std::string> blockedSrcMac);
