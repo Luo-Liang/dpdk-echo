@@ -92,7 +92,7 @@ int ProbeSelfLatency(void *arg)
 	auto port = myarg->associatedPort;
 	auto pBuf = rte_pktmbuf_alloc(pool);
 	auto queue = 0;
-	const int PROBE_COUNT = 10000;
+	const int PROBE_COUNT = 1000;
 	int selfProbeCount = PROBE_COUNT;
 	if (pBuf == NULL)
 	{
@@ -156,7 +156,7 @@ int ProbeSelfLatency(void *arg)
 			}
 		}
 	}
-	int ret = (int)(1.0 * elapsed / PROBE_COUNT);
+	int ret = (int)(1.0 * elapsed / counts);
 	printf("[%d] self probe latency = %d. %d/%d.\n", myarg->ID, ret, counts, PROBE_COUNT);
 	return ret;
 }
