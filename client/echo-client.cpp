@@ -332,6 +332,11 @@ static int lcore_execute(void *arg)
 						//if (myarg->samples.size() == myarg->counter - 1)
 						//{
 						myarg->counter--;
+						if (myarg->verbose)
+						{
+							printf("[%d] request timeout pid=%d. consecTimeouts=%d\n", myarg->ID, pid, consecTimeouts); //, (uint32_t)elapsed);
+						}
+
 						//myarg->samples.push_back(TIME_OUT);
 						//choosing median. penalizing drops.
 						//myarg->samples.push_back(1000);
@@ -526,15 +531,12 @@ int main(int argc, char **argv)
 	/* print status */
 	for (size_t i = 0; i < outputs.size(); i++)
 	{
-		if (i == rank)
+		auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", i)).c_str());
+		for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
 		{
-			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", i)).c_str());
-			for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
-			{
-				larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
-			}
-			EmitFile(outputs[i], sid, dids[i], larg.samples.at(i));
+			larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
 		}
+		EmitFile(outputs[i], sid, dids[i], larg.samples.at(i));
 	}
 	//free(largs);
 	return 0;
