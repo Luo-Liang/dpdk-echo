@@ -91,6 +91,7 @@ void InitializePayloadResponse()
 struct echo_hdr
 {
 	struct common_hdr pro_hdr;
+	int SEQ;
 	char payload[ECHO_PAYLOAD_MAXLEN];
 } __attribute__((packed));
 
@@ -112,40 +113,11 @@ ip_2_uint32(uint8_t ip[])
 	return myip;
 }
 
-static inline void
-pkt_swap_address(struct common_hdr *comhdr)
-{
-	uint8_t tmp_mac[ETHER_ADDR_LEN];
-	uint32_t tmp_ip;
-	uint16_t tmp_udp;
-
-	// Destination addr copy
-	rte_memcpy(tmp_mac, comhdr->ether.d_addr.addr_bytes, ETHER_ADDR_LEN);
-	tmp_ip = comhdr->ip.dst_addr;
-	tmp_udp = comhdr->udp.dst_port;
-
-	// SRC -> DST
-	rte_memcpy(comhdr->ether.d_addr.addr_bytes, comhdr->ether.s_addr.addr_bytes,
-			   ETHER_ADDR_LEN);
-	comhdr->ip.dst_addr = comhdr->ip.src_addr;
-	comhdr->udp.dst_port = comhdr->udp.src_port;
-
-	// DST -> SRC
-	rte_memcpy(comhdr->ether.s_addr.addr_bytes, tmp_mac, ETHER_ADDR_LEN);
-	comhdr->ip.src_addr = tmp_ip;
-	comhdr->udp.src_port = tmp_udp;
-
-	// Clear old checksumcomhdr->ip);
-	//comhdr->ip.hdr_checksum = 0;
-	//comhdr->udp.dgram_cksum = 0;
-	//comhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&comhdr->ip, &comhdr->udp);
-}
-
 void pkt_build(char *pkt_ptr,
 			   endhost &src,
 			   endhost &des,
 			   bool manualCksum,
-			   pkt_type type)
+			   pkt_type type, int sequenceNumber)
 {
 	common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
 
@@ -175,49 +147,46 @@ void pkt_build(char *pkt_ptr,
 	//UDP_HEADER_LEN;
 	if (type == pkt_type::ECHO_REQ)
 	{
-		pkt_prepare_request(pkt_ptr);
+		pkt_prepare_request(pkt_ptr, sequenceNumber);
 	}
-	else if(type == pkt_type::ECHO_RES)
+	else if (type == pkt_type::ECHO_RES)
 	{
-		pkt_prepare_reponse(pkt_ptr);
+		pkt_prepare_reponse(pkt_ptr, sequenceNumber);
 	}
-	myhdr->udp.dgram_cksum = 0;
-	//if(manualCksum)
-	//{
 	myhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&myhdr->ip, &myhdr->udp); // | 0; // uhdr.uh_sum = htons(0xba29);
-	//}
-	//myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
-	//printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
+																			 //}
+																			 //myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
+																			 //printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
 }
 
-void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum)
+void pkt_set_attribute(struct rte_mbuf *buf)
 {
 	buf->ol_flags |= PKT_TX_IPV4;
-	if (manualCksum == false)
-	{
-		//buf->ol_flags |= PKT_TX_IP_CKSUM;
-	}
 	buf->l2_len = sizeof(struct ether_hdr);
 	buf->l3_len = sizeof(struct ipv4_hdr);
 }
 
-void pkt_prepare_request(char *pkt_ptr)
+void pkt_prepare_request(char *pkt_ptr, int sequence)
 {
 	echo_hdr *mypkt = (echo_hdr *)pkt_ptr;
+	mypkt->SEQ = sequence;
 	rte_memcpy(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN);
 }
 
-pkt_type pkt_process(rte_mbuf *buf, uint32_t ip)
+//seq is only populated if a valid response is received.
+pkt_type pkt_process(rte_mbuf *buf, uint32_t ip, int& seq)
 {
 	echo_hdr *mypkt = rte_pktmbuf_mtod(buf, echo_hdr *);
 	if (mypkt->pro_hdr.ip.dst_addr == ip)
 	{
 		if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{
+			seq = mypkt->SEQ;
 			return pkt_type::ECHO_REQ;
 		}
 		else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{
+			seq = mypkt->SEQ;
 			return pkt_type::ECHO_RES;
 		}
 		else
@@ -231,9 +200,10 @@ pkt_type pkt_process(rte_mbuf *buf, uint32_t ip)
 	}
 }
 
-void pkt_prepare_reponse(char *pkt_ptr)
+void pkt_prepare_reponse(char *pkt_ptr, int sequence)
 {
 	echo_hdr *mypkt = (echo_hdr *)pkt_ptr;
+	mypkt->SEQ = sequence;
 	rte_memcpy(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN);
 }
 

@@ -25,15 +25,17 @@ void IPFromString(std::string str, uint8_t bytes[4]);
 
 uint16_t pkt_size();
 void pkt_build(char *pkt_ptr,
-               endhost &src,
-               endhost &des,
-               bool manualCksum,
-               pkt_type type);
-void pkt_set_attribute(struct rte_mbuf *buf, bool manualCksum);
+			   endhost &src,
+			   endhost &des,
+			   bool manualCksum,
+			   pkt_type type, 
+         int sequenceNumber);
+
+void pkt_set_attribute(struct rte_mbuf *buf);
 uint16_t udp_checksum(udphdr *, uint32_t, uint32_t);
-void pkt_prepare_reponse(char* pkt_ptr);
-pkt_type pkt_process(rte_mbuf* buf, uint32_t ip);
-void pkt_prepare_request(char* pkt_ptr);
+void pkt_prepare_reponse(char* pkt_ptr, int);
+pkt_type pkt_process(rte_mbuf *buf, uint32_t ip, int& seq);
+void pkt_prepare_request(char* pkt_ptr, int);
 
 
 void pkt_dump(struct rte_mbuf *buf);

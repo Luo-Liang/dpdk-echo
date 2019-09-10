@@ -101,7 +101,8 @@ int ProbeSelfLatency(void *arg)
 	//printf("here3");
 	rte_mbuf_refcnt_set(pBuf, selfProbeCount);
 	auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-	pkt_build(pkt_ptr, myarg->src, myarg->src, myarg->AzureSupport, pkt_type::ECHO_REQ);
+	int seq = 0;
+	pkt_build(pkt_ptr, myarg->src, myarg->src, myarg->AzureSupport, pkt_type::ECHO_REQ, seq);
 	//pkt_dump(pBuf);
 	//printf("here2");
 	struct rte_mbuf *rbufs[BATCH_SIZE];
@@ -109,7 +110,7 @@ int ProbeSelfLatency(void *arg)
 
 	int elapsed = 0;
 	uint32_t selfProbeIP = ip_2_uint32(myarg->src.ip);
-	while (selfProbeCount-- > 0)
+	while (selfProbeCount > 0)
 	{
 		gettimeofday(&start, NULL);
 		if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
@@ -127,7 +128,8 @@ int ProbeSelfLatency(void *arg)
 			gettimeofday(&end, NULL);
 			for (int i = 0; i < recv; i++)
 			{
-				if (pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP))
+				int seq = 0;
+				if (pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq))
 				{
 					found = true;
 					selfProbeCount--;
@@ -139,7 +141,7 @@ int ProbeSelfLatency(void *arg)
 			long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
 			if (found == false && timeDelta > 1000)
 			{
-				//1 sec is long enough for us to tell the packet is lost.
+				//1ms sec is long enough for us to tell the packet is lost.
 				found = true;
 				//this will trigger a resend.
 				//if (myarg->samples.size() == myarg->counter - 1)
@@ -151,13 +153,31 @@ int ProbeSelfLatency(void *arg)
 		}
 	}
 	//these are measured in microseconds.
-	printf("[%d] self probe latency = %d\n", myarg->ID, 2 * 1000 * (elapsed / PROBE_COUNT));
-	return 2 * 1000 * (elapsed / PROBE_COUNT);
+	auto ret = (int)1000.0 * elapsed / PROBE_COUNT;
+	printf("[%d] self probe latency = %d\n", myarg->ID, ret);
+	return ret;
 }
 NonblockingSingleBarrier *rendezvous;
 
-static int
-lcore_execute(void *arg)
+void requestBuffers(rte_mempool *pool, int samples, rte_mbuf **&mBufs, char **&pBufs)
+{
+	mBufs = (rte_mbuf **)malloc(sizeof(rte_mbuf *) * samples);
+	pBufs = (char **)malloc(sizeof(char *) * samples);
+
+	if (0 != rte_pktmbuf_alloc_bulk(pool, mBufs, samples))
+	{
+		rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed.");
+	}
+
+	for (int i = 0; i < samples; i++)
+	{
+		rte_mbuf_refcnt_set(mBufs[i], samples);
+		pkt_set_attribute(mBufs[i]);
+		pBufs[i] = rte_pktmbuf_append(mBufs[i], pkt_size());
+	}
+}
+
+static int lcore_execute(void *arg)
 {
 	struct lcore_args *myarg;
 	uint8_t queue;
@@ -179,35 +199,28 @@ lcore_execute(void *arg)
 	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
 	int worldSize = myarg->dsts.size();
 	int samples = myarg->counter;
-	for (int round = 0; round < myarg->dsts.size() - 1; round++)
-	{
-		auto pBuf = rte_pktmbuf_alloc(myarg->pool);
-		//ready up pBufs.
-		//let me create a batch of packets that i will be using all the time, which is one.
-		if (pBuf == NULL)
-		{
-			rte_exit(EXIT_FAILURE, "Error: request pktmbuf pool allocation failed.");
-		}
-		rte_mbuf_refcnt_set(pBuf, samples);
-		auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-		pkt_build(pkt_ptr, myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_REQ);
-		pkt_set_attribute(pBuf, myarg->AzureSupport);
 
-		auto responseBuf = rte_pktmbuf_alloc(myarg->pool);
-		if (responseBuf == NULL)
+	rte_mbuf **reqMBufs;
+	rte_mbuf **resMBufs;
+	char **reqBufs;
+	char **resBufs;
+	requestBuffers(myarg->pool, samples, reqMBufs, reqBufs);
+	requestBuffers(myarg->pool, samples, resMBufs, resBufs);
+
+	for (int round = 0; round < myarg->dsts.size(); round++)
+	{
+		//build packet.
+		for (int i = 0; i < samples; i++)
 		{
-			rte_exit(EXIT_FAILURE, "Error: response pktmbuf pool allocation failed.");
+			pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_REQ, i);
+			pkt_build(resBufs[i], myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_RES, i);
 		}
-		rte_mbuf_refcnt_set(responseBuf, samples);
-		auto response_pkt_ptr = rte_pktmbuf_append(responseBuf, pkt_size());
-		pkt_build(response_pkt_ptr, myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_RES);
-		pkt_set_attribute(responseBuf, myarg->AzureSupport);
 
 		int consecTimeouts = 0;
 		myarg->counter = samples;
-		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
 		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round), worldSize);
-		consecTimeouts = 0;
+		int pid = 0;
+		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
 
 		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier() == false)
 		{
@@ -218,16 +231,17 @@ lcore_execute(void *arg)
 			//do this only if not enough sample is collected.
 			if (sendMoreProbe)
 			{
+				assert(pid < samples);
 				//pkt_dump(bufs[i]);
 				start = std::chrono::high_resolution_clock::now();
-				if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
+				if (0 > rte_eth_tx_burst(port, queue, &reqMBufs[pid], 1))
 				{
 					rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
 				}
 				else if (myarg->verbose)
 				{
 					printf("[%d] echo request sent.\n", myarg->ID);
-					pkt_dump(pBuf);
+					pkt_dump(reqMBufs[pid]);
 				}
 			}
 			/* free non-sent buffers */
@@ -242,10 +256,11 @@ lcore_execute(void *arg)
 				end = std::chrono::high_resolution_clock::now();
 				for (int i = 0; i < recv; i++)
 				{
-					auto type = pkt_process(rbufs[i], expectedMyIp);
+					int seq = 0;
+					auto type = pkt_process(rbufs[i], expectedMyIp, seq);
 					if (type == ECHO_RES)
 					{
-						if (sendMoreProbe)
+						if (sendMoreProbe && seq == pid)
 						{
 							//it is a response. I can record time.
 							consecTimeouts = 0;
@@ -266,6 +281,10 @@ lcore_execute(void *arg)
 								rendezvous->SubmitBarrier(barrierName, worldSize);
 								printf("[information][ID=%d][round=%d] finished with a qualified response.\n", myarg->ID, round);
 							}
+							else
+							{
+								pid++;
+							}
 						}
 						else
 						{
@@ -274,21 +293,22 @@ lcore_execute(void *arg)
 					}
 					else if (type == ECHO_REQ)
 					{
+
 						if (myarg->verbose)
 						{
-							printf("[%d] echo request received. \n", myarg->ID);//, (uint32_t)elapsed);
+							printf("[%d] echo request received. seq = %d \n", myarg->ID, seq); //, (uint32_t)elapsed);
 							pkt_dump(rbufs[i]);
 						}
 						//someone else's request. Send response.
 						//let dpdk decide whether to batch or not
-						if (0 > rte_eth_tx_burst(port, queue, &responseBuf, 1))
+						if (0 > rte_eth_tx_burst(port, queue, &resMBufs[pid], 1))
 						{
 							rte_exit(EXIT_FAILURE, "Error: response send failed\n");
 						}
 						if (myarg->verbose)
 						{
-							printf("[%d] echo request responded. \n", myarg->ID);//, (uint32_t)elapsed);
-							pkt_dump(responseBuf);
+							printf("[%d] echo request responded. \n", myarg->ID); //, (uint32_t)elapsed);
+							pkt_dump(resMBufs[pid]);
 						}
 					}
 					rte_pktmbuf_free(rbufs[i]);
@@ -298,7 +318,7 @@ lcore_execute(void *arg)
 				if (sendMoreProbe)
 				{
 					//timeout and recovery only relevant if more packets are sent.
-					const size_t TIME_OUT = 1000000000ULL;
+					const size_t TIME_OUT = 4000000000ULL;
 					size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
 					if (timeDelta > TIME_OUT)
 					{
@@ -320,6 +340,10 @@ lcore_execute(void *arg)
 							std::string barrierName = CxxxxStringFormat("round %d", round);
 							rendezvous->SubmitBarrier(barrierName, worldSize);
 							printf("[information][ID=%d][round=%d] finished with a timeout.\n", myarg->ID, round);
+						}
+						else
+						{
+							pid++;
 						}
 					}
 				}
