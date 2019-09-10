@@ -67,7 +67,7 @@ int port_init(lcore_args *larg, std::string srcIp, std::string srcMac, std::vect
                                          RTE_MBUF_DEFAULT_BUF_SIZE, rte_lcore_to_socket_id(0));
     if (larg->pool == NULL)
     {
-        rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed\n");
+        rte_exit(EXIT_FAILURE, "Error: rte_pktmbuf_pool_create failed : %d\n", rte_errno);
     }
     //largs[i].src_id = (int *)malloc(sizeof(int) * nb_ports);
     //largs[i].srcMacs.resize(nb_ports);
