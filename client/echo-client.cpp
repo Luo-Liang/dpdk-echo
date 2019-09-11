@@ -330,6 +330,8 @@ lcore_execute(void *arg)
                     //this will trigger a resend.
                     //if (myarg->samples.size() == myarg->counter - 1)
                     //{
+                    myarg->samples.push_back(TIME_OUT);
+	            myarg->samplesSelfProbe.push_back(TIME_OUT);			
                     myarg->counter--;
                     //myarg->samples.push_back(TIME_OUT);
                     //choosing median. penalizing drops.
