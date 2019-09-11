@@ -304,8 +304,8 @@ lcore_execute(void *arg)
                         found = true;
                         //__sync_fetch_and_add(&tot_proc_pkts, 1);
                         elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
-                        myarg->samples.push_back(elapsed >= selfLatency ? elapsed - selfLatency : elapsed);
-			myarg->samplesNoSelf.push_back(elapsed);
+                        myarg->samples.push_back(elapsed);
+			myarg->samplesSelfProbe.push_back(elapsed >= selfLatency ? elapsed - selfLatency : elapsed);
                         if (myarg->verbose)
                         {
                             printf("echo response. %d us\n", (uint32_t)(elapsed >= selfLatency ? elapsed - selfLatency : elapsed));
