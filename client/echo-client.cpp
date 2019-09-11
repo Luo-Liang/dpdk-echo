@@ -250,11 +250,8 @@ lcore_execute(void *arg)
     }
 
     int selfLatency = 0;
-    if (myarg->selfProbe)
-    {
-        selfLatency = ProbeSelfLatency(arg);
-        printf("Thread %d self probe latency = %d.\n", myarg->tid, (uint32_t)selfLatency);
-    }
+    selfLatency = ProbeSelfLatency(arg);
+    printf("Thread %d self probe latency = %d.\n", myarg->tid, (uint32_t)selfLatency);
     rte_mbuf *bufPorts[RTE_MAX_ETHPORTS];
     for (int i = 0; i < myarg->associatedPorts.size(); i++)
     {
