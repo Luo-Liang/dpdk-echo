@@ -247,7 +247,7 @@ void EmitFile(ArgumentParser &ap,
             for (auto t : largs[i].samplesSelfProbe)
             {
                 //from, to, ping result
-                noselfProbeFile << ap.retrieve<std::string>("sid") << ","
+                selfProbeFile << ap.retrieve<std::string>("sid") << ","
 				<< ap.retrieve<std::string>("did") << ","
 				<< t
 				<< std::endl;
