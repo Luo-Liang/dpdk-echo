@@ -239,12 +239,12 @@ void EmitFile(ArgumentParser &ap,
         printf("file written to %s\r\n", file.c_str());	
 
 
-	auto noSelfProbeFileStr = "NOSELF" + ap.retrieve<std::string>("output");
-	std::ofstream noselfProbeFile;
-	noselfProbeFile.open(noSelfProbeFileStr);
+	auto SelfProbeFileStr = "SELF" + ap.retrieve<std::string>("output");
+	std::ofstream selfProbeFile;
+	selfProbeFile.open(SelfProbeFileStr);
 	for (int i = 0; i < threadnum; i++)
         {
-            for (auto t : largs[i].samplesNoSelf)
+            for (auto t : largs[i].samplesSelfProbe)
             {
                 //from, to, ping result
                 noselfProbeFile << ap.retrieve<std::string>("sid") << ","
@@ -253,8 +253,8 @@ void EmitFile(ArgumentParser &ap,
 				<< std::endl;
             }
         }
-	noselfProbeFile.close();
-        printf("file written to %s\r\n", noSelfProbeFileStr.c_str());
+	selfProbeFile.close();
+        printf("file written to %s\r\n", SelfProbeFileStr.c_str());
     }
     else
     {
