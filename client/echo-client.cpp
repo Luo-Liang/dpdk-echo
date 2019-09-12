@@ -289,9 +289,10 @@ static int lcore_execute(void *arg)
 								pid++;
 							}
 						}
-						else
+						else if(myarg->verbose)
 						{
 							printf("echo response received but not expected.\n");
+							pkt_dump(rbufs[i]);
 						}
 					}
 					else if (type == ECHO_REQ)
