@@ -291,7 +291,7 @@ static int lcore_execute(void *arg)
 						}
 						else if(myarg->verbose)
 						{
-						        printf("[%d] echo response received but not expected. seq = %d (may be garbage)\n", myarg->ID, seq);
+						  printf("[%d] echo response received but not expected. seq = %d. expecting = %d (may be garbage)\n", myarg->ID, seq, pid);
 							pkt_dump(rbufs[i]);
 						}
 					}
@@ -305,7 +305,7 @@ static int lcore_execute(void *arg)
 						}
 						//someone else's request. Send response.
 						//let dpdk decide whether to batch or not
-						if (0 > rte_eth_tx_burst(port, queue, &resMBufs[pid], 1))
+						if (0 > rte_eth_tx_burst(port, queue, &resMBufs[seq], 1))
 						{
 							rte_exit(EXIT_FAILURE, "Error: response send failed\n");
 						}
