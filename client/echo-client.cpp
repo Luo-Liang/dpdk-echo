@@ -311,7 +311,7 @@ static int lcore_execute(void *arg)
 						}
 						if (myarg->verbose)
 						{
-							printf("[%d] echo request responded. \n", myarg->ID); //, (uint32_t)elapsed);
+						        printf("[%d] echo request responded. seq = %d\n", myarg->ID, seq); //, (uint32_t)elapsed);
 							pkt_dump(resMBufs[pid]);
 						}
 					}
