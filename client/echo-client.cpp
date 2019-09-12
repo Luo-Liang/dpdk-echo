@@ -142,6 +142,8 @@ int ProbeSelfLatency(void *arg)
 				}
 				else
 				  {
+				    printf("[%d]self probe received unknown message. seq = %d. \n", myarg->ID, seq);
+				    pkt_dump(rbufs[i]);
 				  }
 				rte_pktmbuf_free(rbufs[i]);
 			}
