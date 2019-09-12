@@ -140,10 +140,13 @@ int ProbeSelfLatency(void *arg)
 					auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 					elapsed += diff;
 				}
+				else
+				  {
+				  }
 				rte_pktmbuf_free(rbufs[i]);
 			}
 			size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-			if (found == false && timeDelta > 100000000)
+			if (found == false && timeDelta > 1000000)
 			{
 				//1ms sec is long enough for us to tell the packet is lost.
 				found = true;
@@ -243,7 +246,7 @@ static int lcore_execute(void *arg)
 				}
 				else if (myarg->verbose)
 				{
-					printf("[%d] echo request sent. pid = %d.\n", myarg->ID, pid);
+				        printf("[%d][round %d] echo request sent. pid = %d.\n", myarg->ID, pid, round);
 					pkt_dump(reqMBufs[pid]);
 				}
 			}
@@ -273,7 +276,7 @@ static int lcore_execute(void *arg)
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
-								printf("[%d] echo response received. %d us. seq = %d\n", myarg->ID, (uint32_t)elapsed, seq);
+							  printf("[%d][round %d] echo response received. %d us. seq = %d\n", myarg->ID, (uint32_t)elapsed, seq, round);
 								pkt_dump(rbufs[i]);
 							}
 							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter);
@@ -291,7 +294,7 @@ static int lcore_execute(void *arg)
 						}
 						else if(myarg->verbose)
 						{
-						  printf("[%d] echo response received but not expected. seq = %d. expecting = %d (may be garbage)\n", myarg->ID, seq, pid);
+						  printf("[%d][round %d] echo response received but not expected. seq = %d. expecting = %d (may be garbage)\n", myarg->ID, seq, pid, round);
 							pkt_dump(rbufs[i]);
 						}
 					}
@@ -300,7 +303,7 @@ static int lcore_execute(void *arg)
 
 						if (myarg->verbose)
 						{
-							printf("[%d] echo request received. seq = %d \n", myarg->ID, seq); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] echo request received. seq = %d \n", myarg->ID, seq, round); //, (uint32_t)elapsed);
 							pkt_dump(rbufs[i]);
 						}
 						//someone else's request. Send response.
@@ -311,7 +314,7 @@ static int lcore_execute(void *arg)
 						}
 						if (myarg->verbose)
 						{
-						        printf("[%d] echo request responded. seq = %d\n", myarg->ID, seq); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] echo request responded. seq = %d\n", myarg->ID, seq, round); //, (uint32_t)elapsed);
 							pkt_dump(resMBufs[pid]);
 						}
 					}
@@ -335,7 +338,7 @@ static int lcore_execute(void *arg)
 						myarg->counter--;
 						if (myarg->verbose)
 						{
-							printf("[%d] request timeout pid=%d. consecTimeouts=%d\n", myarg->ID, pid, consecTimeouts); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d\n", myarg->ID, pid, consecTimeouts, round); //, (uint32_t)elapsed);
 						}
 
 						//myarg->samples.push_back(TIME_OUT);
