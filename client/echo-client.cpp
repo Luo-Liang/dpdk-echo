@@ -291,7 +291,7 @@ static int lcore_execute(void *arg)
 						}
 						else if(myarg->verbose)
 						{
-							printf("echo response received but not expected.\n");
+						        printf("[%d] echo response received but not expected. seq = %d (may be garbage)\n", myarg->ID, seq);
 							pkt_dump(rbufs[i]);
 						}
 					}
