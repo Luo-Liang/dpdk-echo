@@ -209,8 +209,8 @@ static int lcore_execute(void *arg)
 	char **resBufs;
 	requestBuffers(myarg->pool, samples, reqMBufs, reqBufs);
 	requestBuffers(myarg->pool, samples, resMBufs, resBufs);
-
-	for (int round = 0; round < myarg->dsts.size(); round++)
+	//last round is just sending to self.
+	for (int round = 0; round < myarg->dsts.size() - 1; round++)
 	{
 		//build packet.
 		for (int i = 0; i < samples; i++)
