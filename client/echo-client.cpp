@@ -120,6 +120,11 @@ int ProbeSelfLatency(void *arg)
 		{
 			rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
 		}
+		else if(myarg->verbose)
+		  {
+		    printf("[%d] self probe sent\n", myarg->ID);
+		    pkt_dump(pBuf);
+		  }
 		bool found = false;
 		while (found == false)
 		{
@@ -132,7 +137,7 @@ int ProbeSelfLatency(void *arg)
 			for (int i = 0; i < recv; i++)
 			{
 				int seq = 0;
-				if (pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq))
+				if (found == false and pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq))
 				{
 					found = true;
 					selfProbeCount--;
@@ -278,7 +283,7 @@ static int lcore_execute(void *arg)
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
-							  printf("[%d][round %d] echo response received. %d us. seq = %d\n", myarg->ID, (uint32_t)elapsed, seq, round);
+							  printf("[%d][round %d] echo response received. %d us. seq = %d\n", myarg->ID, round, (uint32_t)elapsed, seq);
 								pkt_dump(rbufs[i]);
 							}
 							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter);
@@ -296,7 +301,7 @@ static int lcore_execute(void *arg)
 						}
 						else if(myarg->verbose)
 						{
-						  printf("[%d][round %d] echo response received but not expected. seq = %d. expecting = %d (may be garbage)\n", myarg->ID, seq, pid, round);
+						  printf("[%d][round %d] echo response received but not expected. seq = %d. expecting = %d (may be garbage)\n", myarg->ID, round, seq, pid);
 							pkt_dump(rbufs[i]);
 						}
 					}
@@ -305,7 +310,7 @@ static int lcore_execute(void *arg)
 
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] echo request received. seq = %d \n", myarg->ID, seq, round); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] echo request received. seq = %d \n", myarg->ID, round, seq); //, (uint32_t)elapsed);
 							pkt_dump(rbufs[i]);
 						}
 						//someone else's request. Send response.
@@ -316,7 +321,7 @@ static int lcore_execute(void *arg)
 						}
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] echo request responded. seq = %d\n", myarg->ID, seq, round); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] echo request responded. seq = %d\n", myarg->ID, round, seq); //, (uint32_t)elapsed);
 							pkt_dump(resMBufs[pid]);
 						}
 					}
@@ -340,7 +345,7 @@ static int lcore_execute(void *arg)
 						myarg->counter--;
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d\n", myarg->ID, pid, consecTimeouts, round); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d\n", myarg->ID, round, pid, consecTimeouts); //, (uint32_t)elapsed);
 						}
 
 						//myarg->samples.push_back(TIME_OUT);
@@ -500,7 +505,7 @@ int main(int argc, char **argv)
 	int selfLatency = 0;
 	if (ap.count("noSelfProbe") == 0)
 	{
-		selfLatency = ProbeSelfLatency(&larg);
+	  selfLatency = ProbeSelfLatency(&larg);
 	}
 	//contribute to self latency to redis.
 	rendezvous->PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
