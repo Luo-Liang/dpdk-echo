@@ -253,7 +253,7 @@ static int lcore_execute(void *arg)
 				}
 				else if (myarg->verbose)
 				{
-				        printf("[%d][round %d] echo request sent. pid = %d.\n", myarg->ID, pid, round);
+				  printf("[%d][round %d] echo request sent. pid = %d.\n", myarg->ID, round, pid);
 					pkt_dump(reqMBufs[pid]);
 				}
 			}
