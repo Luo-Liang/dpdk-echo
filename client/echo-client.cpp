@@ -120,11 +120,11 @@ int ProbeSelfLatency(void *arg)
 		{
 			rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
 		}
-		else if(myarg->verbose)
-		  {
-		    printf("[%d] self probe sent\n", myarg->ID);
-		    pkt_dump(pBuf);
-		  }
+		//else if(myarg->verbose)
+		// {
+		//    printf("[%d] self probe sent\n", myarg->ID);
+		//    pkt_dump(pBuf);
+		//  }
 		bool found = false;
 		while (found == false)
 		{
@@ -145,7 +145,7 @@ int ProbeSelfLatency(void *arg)
 					auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 					elapsed += diff;
 				}
-				else
+				else if(myarg->verbose)
 				  {
 				    printf("[%d]self probe received unknown message. seq = %d. \n", myarg->ID, seq);
 				    pkt_dump(rbufs[i]);
@@ -166,7 +166,7 @@ int ProbeSelfLatency(void *arg)
 			}
 		}
 	}
-	int ret = (int)(1.0 * elapsed / counts);
+	int ret = counts == 0? 0 : (int)(1.0 * elapsed / counts);
 	printf("[%d] self probe latency = %d. %d/%d.\n", myarg->ID, ret, counts, PROBE_COUNT);
 	return ret;
 }
