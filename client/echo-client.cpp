@@ -421,7 +421,8 @@ int main(int argc, char **argv)
 	ap.addArgument("--payload", 1, true);
 	ap.addArgument("--noSelfProbe", 1, true);
 	ap.addArgument("--rendezvous", 1, false);
-
+	//output dids
+	ap.addArgument("--odids",'+',false);
 	//ap.addArgument("--rendezvousPrefix", 1, false);
 	//int counter = 20;
 	//while(counter > 0)
@@ -519,6 +520,7 @@ int main(int argc, char **argv)
 	auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
 	auto dstMacs = ap.retrieve<std::vector<std::string>>("dstMacs");
 	auto dids = ap.retrieve<std::vector<std::string>>("dids");
+	auto odids = ap.retrieve<std::vector<std::string>>("odids");
 	if (dstIps.size() != dstMacs.size() || dstMacs.size() != dids.size() || dids.size() != outputs.size())
 	{
 		rte_exit(EXIT_FAILURE, "specify same number of destination ips and macs and remote ids.");
@@ -544,17 +546,15 @@ int main(int argc, char **argv)
 	printf("All threads have finished executing.\n");
 
 	/* print status */
-	for (size_t i = 0; i < size; i++)
+	for (size_t i = 0; i < size - 1; i++)
 	{
-		if (i != rank)
-		{
-			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", i)).c_str());
-			for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
-			{
-				larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
-			}
-			EmitFile(outputs.at(i), sid, dids[i], larg.samples.at(i));
-		}
+	  auto remote=odids.at(i);
+	  auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
+	  for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
+	    {
+	      larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+	    }
+	  EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
 	}
 	//free(largs);
 	return 0;
