@@ -221,8 +221,8 @@ static int lcore_execute(void *arg)
 	requestBuffers(myarg->pool, samples, resMBufs, resBufs);
 	//last round is just sending to self.
 
-	std::vector<int> recvOrder = myarg->dsts;
-	std::reverse(recvOrder.first(), recvOrder.last() - 1);
+	std::vector<endhost> recvOrder = myarg->dsts;
+	std::reverse(recvOrder.begin(), recvOrder.end() - 1);
 	for (int round = 0; round < myarg->dsts.size() - 1; round++)
 	{
 		//build packet.
@@ -230,7 +230,7 @@ static int lcore_execute(void *arg)
 		{
 			pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_REQ, i);
 			//response ip is not same as dest ip
-			pkt_build(resBufs[i], myarg->src, recvOrder, myarg->AzureSupport, pkt_type::ECHO_RES, i);
+			pkt_build(resBufs[i], myarg->src, recvOrder.at(round), myarg->AzureSupport, pkt_type::ECHO_RES, i);
 		}
 
 		int consecTimeouts = 0;
