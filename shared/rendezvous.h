@@ -78,6 +78,7 @@ class NonblockingSingleBarrier
 				//auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
 				//assert(replyInc); // << pContext->errstr;
 				//CHECK(reply) << pContext->errstr;
+				bool refresh = false;
 				while (true)
 				{
 					//100ms.
@@ -94,10 +95,20 @@ class NonblockingSingleBarrier
 						if (workName == name)
 						{
 							name = "";
+							mutex.unlock();
 						}
-						mutex.unlock();
+						else
+						{
+						        refresh = true;
+							mutex.unlock();
+						        break;
+						}
 					}
 				}
+				if(refresh)
+				  {
+				    break;
+				  }
 			}
 			usleep(100000);
 		}
