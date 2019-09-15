@@ -422,8 +422,7 @@ int main(int argc, char **argv)
 	ap.addArgument("--noSelfProbe", 1, true);
 	ap.addArgument("--rendezvous", 1, false);
 	//output dids
-	ap.addArgument("--odids",'+',false);
-	//ap.addArgument("--rendezvousPrefix", 1, false);
+	//receive order. This can be irrelevant to dids.
 	//int counter = 20;
 	//while(counter > 0)
 	//  {
@@ -520,7 +519,6 @@ int main(int argc, char **argv)
 	auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
 	auto dstMacs = ap.retrieve<std::vector<std::string>>("dstMacs");
 	auto dids = ap.retrieve<std::vector<std::string>>("dids");
-	auto odids = ap.retrieve<std::vector<std::string>>("odids");
 	if (dstIps.size() != dstMacs.size() || dstMacs.size() != dids.size() || dids.size() != outputs.size())
 	{
 		rte_exit(EXIT_FAILURE, "specify same number of destination ips and macs and remote ids.");
@@ -548,7 +546,7 @@ int main(int argc, char **argv)
 	/* print status */
 	for (size_t i = 0; i < size - 1; i++)
 	{
-	  auto remote=odids.at(i);
+	  auto remote=(rank + i + 1) % size;
 	  auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
 	  for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
 	    {
