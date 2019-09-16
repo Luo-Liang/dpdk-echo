@@ -101,8 +101,9 @@ int ProbeSelfLatency(void *arg)
 	//printf("here3");
 	rte_mbuf_refcnt_set(pBuf, selfProbeCount);
 	auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-	int seq = 0;
-	pkt_build(pkt_ptr, myarg->src, myarg->src, myarg->AzureSupport, pkt_type::ECHO_REQ, seq);
+	unsigned short seq = 0;
+	unsigned short round = 0;
+	pkt_build(pkt_ptr, myarg->src, myarg->src, pkt_type::ECHO_REQ, seq, round);
 	//pkt_dump(pBuf);
 	//printf("here2");
 	struct rte_mbuf *rbufs[BATCH_SIZE];
@@ -136,8 +137,7 @@ int ProbeSelfLatency(void *arg)
 			end = std::chrono::high_resolution_clock::now();
 			for (int i = 0; i < recv; i++)
 			{
-				int seq = 0;
-				if (found == false and pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq))
+			        if (found == false and pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq, round))
 				{
 					found = true;
 					selfProbeCount--;
@@ -147,7 +147,7 @@ int ProbeSelfLatency(void *arg)
 				}
 				else if(myarg->verbose)
 				  {
-				    printf("[%d]self probe received unknown message. seq = %d. \n", myarg->ID, seq);
+				    printf("[%d]self probe received unknown message. seq = %d. round = %d\n", myarg->ID, seq, round);
 				    pkt_dump(rbufs[i]);
 				  }
 				rte_pktmbuf_free(rbufs[i]);
@@ -223,14 +223,14 @@ static int lcore_execute(void *arg)
 
 	std::vector<endhost> recvOrder = myarg->dsts;
 	std::reverse(recvOrder.begin(), recvOrder.end() - 1);
-	for (int round = 0; round < myarg->dsts.size() - 1; round++)
+	for (unsigned short round = 0; round < myarg->dsts.size() - 1; round++)
 	{
 		//build packet.
 		for (int i = 0; i < samples; i++)
 		{
-			pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), myarg->AzureSupport, pkt_type::ECHO_REQ, i);
+		        pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), pkt_type::ECHO_REQ, i, round);
 			//response ip is not same as dest ip
-			pkt_build(resBufs[i], myarg->src, recvOrder.at(round), myarg->AzureSupport, pkt_type::ECHO_RES, i);
+			pkt_build(resBufs[i], myarg->src, recvOrder.at(round), pkt_type::ECHO_RES, i, round);
 		}
 
 		int consecTimeouts = 0;
@@ -273,8 +273,9 @@ static int lcore_execute(void *arg)
 				end = std::chrono::high_resolution_clock::now();
 				for (int i = 0; i < recv; i++)
 				{
-					int seq = 0;
-					auto type = pkt_process(rbufs[i], expectedMyIp, seq);
+					unsigned short seq = 0;
+					unsigned short r = 0;
+					auto type = pkt_process(rbufs[i], expectedMyIp, seq, r);
 					if (type == ECHO_RES)
 					{
 						if (sendMoreProbe && seq == pid)
@@ -287,7 +288,7 @@ static int lcore_execute(void *arg)
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
-							  printf("[%d][round %d] echo response received. %d us. seq = %d\n", myarg->ID, round, (uint32_t)elapsed, seq);
+							  printf("[%d][round %d] echo response received. %d us. seq = %d. r = %d\n", myarg->ID, round, (uint32_t)elapsed, seq,r);
 								pkt_dump(rbufs[i]);
 							}
 							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter);
@@ -305,7 +306,7 @@ static int lcore_execute(void *arg)
 						}
 						else if(myarg->verbose)
 						{
-						  printf("[%d][round %d] echo response received but not expected. seq = %d. expecting = %d (may be garbage)\n", myarg->ID, round, seq, pid);
+						  printf("[%d][round %d] echo response received but not expected. seq = %d. expecting = %d (may be garbage). r = %d\n", myarg->ID, round, seq, pid, r);
 							pkt_dump(rbufs[i]);
 						}
 					}
@@ -314,7 +315,7 @@ static int lcore_execute(void *arg)
 
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] echo request received. seq = %d \n", myarg->ID, round, seq); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] echo request received. seq = %d. r = %d \n", myarg->ID, round, seq, r); //, (uint32_t)elapsed);
 							pkt_dump(rbufs[i]);
 						}
 						//someone else's request. Send response.
@@ -325,7 +326,7 @@ static int lcore_execute(void *arg)
 						}
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] echo request responded. seq = %d\n", myarg->ID, round, seq); //, (uint32_t)elapsed);
+						  printf("[%d][round %d] echo request responded. seq = %d. r = %d\n", myarg->ID, round, seq,r); //, (uint32_t)elapsed);
 							pkt_dump(resMBufs[pid]);
 						}
 					}

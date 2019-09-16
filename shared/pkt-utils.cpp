@@ -91,7 +91,8 @@ void InitializePayloadResponse()
 struct echo_hdr
 {
 	struct common_hdr pro_hdr;
-	int SEQ;
+	unsigned short SEQ;
+        unsigned short ROUND;
 	char payload[ECHO_PAYLOAD_MAXLEN];
 } __attribute__((packed));
 
@@ -117,8 +118,7 @@ ip_2_uint32(uint8_t ip[])
 void pkt_build(char *pkt_ptr,
 			   endhost &src,
 			   endhost &des,
-			   bool manualCksum,
-			   pkt_type type, int sequenceNumber)
+	       pkt_type type, unsigned short sequenceNumber, unsigned short round)
 {
 	common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
 
@@ -148,11 +148,11 @@ void pkt_build(char *pkt_ptr,
 	//UDP_HEADER_LEN;
 	if (type == pkt_type::ECHO_REQ)
 	{
-		pkt_prepare_request(pkt_ptr, sequenceNumber);
+	  pkt_prepare_request(pkt_ptr, sequenceNumber, round);
 	}
 	else if (type == pkt_type::ECHO_RES)
 	{
-		pkt_prepare_reponse(pkt_ptr, sequenceNumber);
+	  pkt_prepare_reponse(pkt_ptr, sequenceNumber, round);
 	}
 	myhdr->udp.dgram_cksum = rte_ipv4_udptcp_cksum(&myhdr->ip, &myhdr->udp); // | 0; // uhdr.uh_sum = htons(0xba29);
 																			 //}
@@ -167,27 +167,28 @@ void pkt_set_attribute(struct rte_mbuf *buf)
 	buf->l3_len = sizeof(struct ipv4_hdr);
 }
 
-void pkt_prepare_request(char *pkt_ptr, int sequence)
+void pkt_prepare_request(char *pkt_ptr, unsigned short sequence, unsigned short round)
 {
 	echo_hdr *mypkt = (echo_hdr *)pkt_ptr;
 	mypkt->SEQ = sequence;
+	mypkt->ROUND=round;
 	rte_memcpy(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN);
 }
 
 //seq is only populated if a valid response is received.
-pkt_type pkt_process(rte_mbuf *buf, uint32_t ip, int& seq)
+pkt_type pkt_process(rte_mbuf *buf, uint32_t ip, unsigned short& seq, unsigned short& round)
 {
 	echo_hdr *mypkt = rte_pktmbuf_mtod(buf, echo_hdr *);
+	seq = mypkt->SEQ;
+	round = mypkt->ROUND;
 	if (mypkt->pro_hdr.ip.dst_addr == ip)
 	{
 		if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{
-			seq = mypkt->SEQ;
 			return pkt_type::ECHO_REQ;
 		}
 		else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{
-			seq = mypkt->SEQ;
 			return pkt_type::ECHO_RES;
 		}
 		else
@@ -201,10 +202,11 @@ pkt_type pkt_process(rte_mbuf *buf, uint32_t ip, int& seq)
 	}
 }
 
-void pkt_prepare_reponse(char *pkt_ptr, int sequence)
+void pkt_prepare_reponse(char *pkt_ptr, unsigned short sequence, unsigned short round)
 {
 	echo_hdr *mypkt = (echo_hdr *)pkt_ptr;
 	mypkt->SEQ = sequence;
+	mypkt->ROUND=round;
 	rte_memcpy(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN);
 }
 
