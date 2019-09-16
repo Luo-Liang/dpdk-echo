@@ -234,7 +234,7 @@ static int lcore_execute(void *arg)
 		}
 
 		int consecTimeouts = 0;
-		myarg->counter = samples;
+		//myarg->counter = samples;
 		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round), worldSize);
 		int pid = 0;
 		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
@@ -345,9 +345,6 @@ static int lcore_execute(void *arg)
 						found = true;
 						consecTimeouts++;
 						//this will trigger a resend.
-						//if (myarg->samples.size() == myarg->counter - 1)
-						//{
-						myarg->counter--;
 						if (myarg->verbose)
 						{
 						  printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d. %d/%d\n", myarg->ID, round, pid, consecTimeouts, (int)myarg->samples.at(round).size(), samples); //, (uint32_t)elapsed);
