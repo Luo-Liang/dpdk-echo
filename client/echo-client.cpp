@@ -336,7 +336,7 @@ static int lcore_execute(void *arg)
 				if (sendMoreProbe)
 				{
 					//timeout and recovery only relevant if more packets are sent.
-					const size_t TIME_OUT = 4000000000ULL;
+					const size_t TIME_OUT = 1000000000ULL;
 					size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
 					if (timeDelta > TIME_OUT)
 					{
