@@ -12,6 +12,7 @@
 #include <atomic>
 #include <thread>
 #include <memory>
+#include <unordered_set>
 
 using namespace std;
 
@@ -64,6 +65,8 @@ class NonblockingSingleBarrier
 	std::string name;
 	int worldSize;
 	std::shared_ptr<std::thread> worker;
+
+	std::unordered_set<std::string> dbgSubmissions;
 
 	void RoutineLoop()
 	{
@@ -145,6 +148,8 @@ public:
 	bool SubmitBarrier(std::string workName, int ws)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
+		assert(dbgSubmissions.find(workName) == dbgSubmissions.end());
+		dbgSubmissions.insert(workName);
 		assert(name == "");
 		worldSize = ws;
 		name = workName;
