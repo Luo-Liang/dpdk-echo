@@ -362,7 +362,7 @@ static int lcore_execute(void *arg)
 							//a flip of truth value means a submission to the barrier
 							std::string barrierName = CxxxxStringFormat("round %d", round);
 							rendezvous->SubmitBarrier(barrierName, worldSize);
-							printf("[information][ID=%d][round=%d] finished with a timeout. %d/%d\n", myarg->ID, round, myarg->samples.at(round).size(), samples);
+							printf("[information][ID=%d][round=%d] finished with a timeout. %d/%d\n", myarg->ID, round, (int)myarg->samples.at(round).size(), samples);
 						}
 						else
 						{
