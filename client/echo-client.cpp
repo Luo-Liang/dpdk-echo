@@ -334,7 +334,7 @@ static int lcore_execute(void *arg)
 				}
 
 				//set a 1s timeout.
-				if (sendMoreProbe)
+				if (sendMoreProbe && found == false)
 				{
 					//timeout and recovery only relevant if more packets are sent.
 					const size_t TIME_OUT = 1000000000ULL;
@@ -421,12 +421,12 @@ int main(int argc, char **argv)
 	ap.addArgument("--rendezvous", 1, false);
 	//output dids
 	//receive order. This can be irrelevant to dids.
-	//int counter = 20;
-	//while(counter > 0)
-	//  {
-	//    sleep(1);
-	//    counter--;
-	//  }
+	int counter = 10;
+	while(counter > 0)
+	  {
+	    sleep(1);
+	    counter--;
+	  }
 	ap.parse(argc, (const char **)argv);
 
 	std::string localIP = ap.retrieve<std::string>("srcIp");
