@@ -158,8 +158,6 @@ int ProbeSelfLatency(void *arg)
 				//1ms sec is long enough for us to tell the packet is lost.
 				found = true;
 				//this will trigger a resend.
-				//if (myarg->samples.size() == myarg->counter - 1)
-				//{
 				selfProbeCount--;
 				//myarg->samples.push_back(timeDelta);
 				//}
@@ -234,10 +232,9 @@ static int lcore_execute(void *arg)
 		}
 
 		int consecTimeouts = 0;
-		//myarg->counter = samples;
 		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round), worldSize);
 		int pid = 0;
-		auto sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+		auto sendMoreProbe = (pid < myarg->counter && consecTimeouts < 10);
 
 		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier() == false)
 		{
@@ -252,7 +249,6 @@ static int lcore_execute(void *arg)
 				{
 					rte_exit(EXIT_FAILURE, "error. pid must be less than sample [%d]. r=%d. pid=%d. samples=%d\n", myarg->ID, round, pid, samples);
 				}
-				assert(pid < samples);
 				//pkt_dump(bufs[i]);
 				start = std::chrono::high_resolution_clock::now();
 				if (0 > rte_eth_tx_burst(port, queue, &reqMBufs[pid], 1))
@@ -295,7 +291,7 @@ static int lcore_execute(void *arg)
 							  printf("[%d][round %d] echo response received. %d us. seq = %d. r = %d\n", myarg->ID, round, (uint32_t)elapsed, seq,r);
 								pkt_dump(rbufs[i]);
 							}
-							sendMoreProbe = (pid < myarg->counter);
+							sendMoreProbe = (pid < myarg->counter - 1);
 							if (sendMoreProbe == false)
 							{
 								//a flip of truth value means a submission to the barrier
@@ -358,7 +354,7 @@ static int lcore_execute(void *arg)
 						//choosing median. penalizing drops.
 						//myarg->samples.push_back(1000);
 						//}
-						sendMoreProbe = (pid < myarg->counter && consecTimeouts < 10);
+						sendMoreProbe = (pid < myarg->counter - 1 && consecTimeouts < 10);
 						if (sendMoreProbe == false)
 						{
 							//a flip of truth value means a submission to the barrier
