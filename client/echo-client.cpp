@@ -228,7 +228,7 @@ static int lcore_execute(void *arg)
 		//build packet.
 		for (int i = 0; i < samples; i++)
 		{
-		        pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), pkt_type::ECHO_REQ, i, round);
+		    pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), pkt_type::ECHO_REQ, i, round);
 			//response ip is not same as dest ip
 			pkt_build(resBufs[i], myarg->src, recvOrder.at(round), pkt_type::ECHO_RES, i, round);
 		}
@@ -248,6 +248,10 @@ static int lcore_execute(void *arg)
 			//do this only if not enough sample is collected.
 			if (sendMoreProbe)
 			{
+				if(pid >= samples)
+				{
+					rte_exit(EXIT_FAILURE, "error. pid must be less than sample [%d]. r=%d. pid=%d. samples=%d\n", myarg->ID, round, pid, samples);
+				}
 				assert(pid < samples);
 				//pkt_dump(bufs[i]);
 				start = std::chrono::high_resolution_clock::now();
