@@ -295,7 +295,7 @@ static int lcore_execute(void *arg)
 							  printf("[%d][round %d] echo response received. %d us. seq = %d. r = %d\n", myarg->ID, round, (uint32_t)elapsed, seq,r);
 								pkt_dump(rbufs[i]);
 							}
-							sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter);
+							sendMoreProbe = (pid < myarg->counter);
 							if (sendMoreProbe == false)
 							{
 								//a flip of truth value means a submission to the barrier
@@ -358,7 +358,7 @@ static int lcore_execute(void *arg)
 						//choosing median. penalizing drops.
 						//myarg->samples.push_back(1000);
 						//}
-						sendMoreProbe = (myarg->samples.at(round).size() < myarg->counter && consecTimeouts < 10);
+						sendMoreProbe = (pid < myarg->counter && consecTimeouts < 10);
 						if (sendMoreProbe == false)
 						{
 							//a flip of truth value means a submission to the barrier
