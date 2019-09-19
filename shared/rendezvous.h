@@ -168,9 +168,13 @@ public:
 	void SynchronousBarrier(std::string _name, int participants)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
+		assert(dbgSubmissions.find(_name) == dbgSubmissions.end());
+		dbgSubmissions.insert(_name);
+
 		auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), _name.c_str());
 		auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
 		assert(replyInc); // << pContext->errstr;
+		
 		//CHECK(reply) << pContext->errstr;
 		while (true)
 		{
