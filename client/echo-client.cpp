@@ -221,7 +221,7 @@ static int lcore_execute(void *arg)
 
 	std::vector<endhost> recvOrder = myarg->dsts;
 	std::reverse(recvOrder.begin(), recvOrder.end() - 1);
-	for (unsigned short round = 0; round < myarg->dsts.size() - 1; round++)
+	for (unsigned short round = 1; round < myarg->dsts.size() - 1; round++)
 	{
 		//build packet.
 		for (int i = 0; i < samples; i++)
