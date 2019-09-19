@@ -148,6 +148,7 @@ public:
 		std::lock_guard<std::recursive_mutex> lock(mutex);
 		assert(dbgSubmissions.find(workName) == dbgSubmissions.end());
 		dbgSubmissions.insert(workName);
+		workQueue.push_front(workName);
 		auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
 		auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
 		assert(replyInc); // << pContext->errstr;
