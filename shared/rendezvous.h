@@ -13,6 +13,8 @@
 #include <thread>
 #include <memory>
 #include <unordered_set>
+#include <unordered_map>
+#include <deque>
 
 using namespace std;
 
@@ -62,31 +64,37 @@ class NonblockingSingleBarrier
 	redisContext *pContext;
 	string prefix;
 	std::recursive_mutex mutex;
-	std::string name;
 	int worldSize;
 	std::shared_ptr<std::thread> worker;
 
+	std::unordered_set<std::string> done;
 	std::unordered_set<std::string> dbgSubmissions;
 
+	std::deque<std::string> workQueue;
+	const int TIME_INTERVAL = 100000; //100ms
+	//strictly only allows sequential polling.
 	void RoutineLoop()
 	{
 		while (true)
 		{
+			std::string workName = "";
 			mutex.lock();
-			auto workName = name;
+			if (workQueue.size() != 0)
+			{
+				workName = workQueue.front();
+				workQueue.pop_front();
+			}
 			mutex.unlock();
-			while (workName != "")
+			if(workName != "")
 			{
 				auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
 				//auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
 				//assert(replyInc); // << pContext->errstr;
 				//CHECK(reply) << pContext->errstr;
-				bool refresh = false;
 				while (true)
 				{
 					//100ms.
 					//64 -> 1.6ms/req
-					usleep(100000);
 					//try to see how many we have now.
 					auto reply = redisCommand(pContext, "GET %s", str.c_str());
 					assert(reply); // << pContext->errstr;
@@ -95,25 +103,15 @@ class NonblockingSingleBarrier
 					if (atoi(pReply->str) == worldSize)
 					{
 						mutex.lock();
-						if (workName == name)
-						{
-							name = "";
-							mutex.unlock();
-						}
-						else
-						{
-						        refresh = true;
-							mutex.unlock();
-						        break;
-						}
+						assert(done.find(workName) == done.end());
+						done.insert(workName);
+						mutex.unlock();
+						break;
 					}
+					usleep(TIME_INTERVAL);
 				}
-				if(refresh)
-				  {
-				    break;
-				  }
 			}
-			usleep(100000);
+			usleep(TIME_INTERVAL);
 		}
 	}
 
@@ -124,7 +122,7 @@ public:
 		*port = Port;
 	}
 
-	NonblockingSingleBarrier(string ip, uint port, string pref = "PLINK") : IP(ip), Port(port), prefix(pref)
+	NonblockingSingleBarrier(string ip, uint port, string pref, int ws) : IP(ip), Port(port), prefix(pref), worldSize(ws)
 	{
 		worker = std::make_shared<std::thread>(&NonblockingSingleBarrier::RoutineLoop, this);
 	}
@@ -145,49 +143,30 @@ public:
 									//CHECK(redisCommand(pContext, "FLUSHALL"));
 	}
 
-	bool SubmitBarrier(std::string workName, int ws)
+	bool SubmitBarrier(std::string workName)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
 		assert(dbgSubmissions.find(workName) == dbgSubmissions.end());
 		dbgSubmissions.insert(workName);
-		assert(name == "");
-		worldSize = ws;
-		name = workName;
-		auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), name.c_str());
+		auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), workName.c_str());
 		auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
 		assert(replyInc); // << pContext->errstr;
 	}
 
-	bool NonBlockingQueryBarrier()
+	bool NonBlockingQueryBarrier(std::string name)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
 		//done if name is clear.
-		return name == "";
+		assert(dbgSubmissions.find(name) != dbgSubmissions.end());
+		return done.find(name) != done.end();
 	}
 
-	void SynchronousBarrier(std::string _name, int participants)
+	void SynchronousBarrier(std::string _name)
 	{
-		std::lock_guard<std::recursive_mutex> lock(mutex);
-		assert(dbgSubmissions.find(_name) == dbgSubmissions.end());
-		dbgSubmissions.insert(_name);
-
-		auto str = CxxxxStringFormat("[%s][Barrier]%s", prefix.c_str(), _name.c_str());
-		auto replyInc = redisCommand(pContext, "INCR %s", str.c_str());
-		assert(replyInc); // << pContext->errstr;
-		
-		//CHECK(reply) << pContext->errstr;
-		while (true)
+		SubmitBarrier(_name);
+		while(NonBlockingQueryBarrier(_name) == false)
 		{
-			usleep(50000);
-			//try to see how many we have now.
-			auto reply = redisCommand(pContext, "GET %s", str.c_str());
-			assert(reply); // << pContext->errstr;
-			auto pReply = (redisReply *)reply;
-			assert(pReply->type == REDIS_REPLY_STRING);
-			if (atoi(pReply->str) == participants)
-			{
-				break;
-			}
+			usleep(TIME_INTERVAL);
 		}
 	}
 
@@ -214,7 +193,7 @@ public:
 				result = std::string(pReply->str);
 				break;
 			}
-			usleep(50000);
+			usleep(TIME_INTERVAL);
 		}
 		assert(result.size());
 		return result;

@@ -57,7 +57,7 @@ std::string dbgStringFromIP(uint8_t ip[4])
 
 std::string dbgStringFromMAC(uint8_t mac[6])
 {
-	std::string ret = std::to_string(mac[0]) + ":" + std::to_string(mac[1]) + ":" + std::to_string(mac[2]) + ":" + std::to_string(mac[3]) + ":" + td::to_string(mac[4]) + ":" + std::to_string(mac[5]);
+	std::string ret = std::to_string(mac[0]) + ":" + std::to_string(mac[1]) + ":" + std::to_string(mac[2]) + ":" + std::to_string(mac[3]) + ":" + std::to_string(mac[4]) + ":" + std::to_string(mac[5]);
 	return ret;
 }
 

@@ -224,7 +224,7 @@ static int lcore_execute(void *arg)
 	std::reverse(recvOrder.begin(), recvOrder.end() - 1);
 	if (myarg->verbose)
 	{
-		std::overall = "[" + std::to_string() + "] Routing Information";
+		std::string overall = "[" + std::to_string(myarg->ID) + "] Routing Information";
 		overall += "\n    dest:\n";
 		std::string sendSeq = "        ";
 		for (int i = 0; i < myarg->dsts.size(); i++)
@@ -252,11 +252,12 @@ static int lcore_execute(void *arg)
 		}
 
 		int consecTimeouts = 0;
-		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round), worldSize);
+		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round));
 		int pid = 0;
 		auto sendMoreProbe = (pid < myarg->counter && consecTimeouts < 10);
+		std::string barrierName = CxxxxStringFormat("round %d", round);
 
-		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier() == false)
+		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier(barrierName) == false)
 		{
 			auto port = myarg->associatedPort;
 			/* Receive and process responses */
@@ -283,7 +284,7 @@ static int lcore_execute(void *arg)
 			}
 			/* free non-sent buffers */
 			bool found = false;
-			while ((found == false && sendMoreProbe == true) || (sendMoreProbe == false && rendezvous->NonBlockingQueryBarrier() == false))
+			while ((found == false && sendMoreProbe == true) || (sendMoreProbe == false && rendezvous->NonBlockingQueryBarrier(barrierName) == false))
 			{
 				int recv = 0;
 				if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
@@ -315,8 +316,7 @@ static int lcore_execute(void *arg)
 							if (sendMoreProbe == false)
 							{
 								//a flip of truth value means a submission to the barrier
-								std::string barrierName = CxxxxStringFormat("round %d", round);
-								rendezvous->SubmitBarrier(barrierName, worldSize);
+								rendezvous->SubmitBarrier(barrierName);
 								printf("[information][ID=%d][round=%d] finished with a qualified response. %d/%d\n", myarg->ID, round, (int)myarg->samples.at(round).size(), samples);
 							}
 							else
@@ -379,7 +379,7 @@ static int lcore_execute(void *arg)
 						{
 							//a flip of truth value means a submission to the barrier
 							std::string barrierName = CxxxxStringFormat("round %d", round);
-							rendezvous->SubmitBarrier(barrierName, worldSize);
+							rendezvous->SubmitBarrier(barrierName);
 							printf("[information][ID=%d][round=%d] finished with a timeout. %d/%d\n", myarg->ID, round, (int)myarg->samples.at(round).size(), samples);
 						}
 						else
@@ -513,9 +513,9 @@ int main(int argc, char **argv)
 	ParseHostPortPrefixWorldSizeRank(combo, host, port, prefix, size, rank);
 	//string ip, uint port, string pref = "PLINK"
 	larg.worldSize = size;
-	rendezvous = new NonblockingSingleBarrier(host, port, prefix);
+	rendezvous = new NonblockingSingleBarrier(host, port, prefix, size);
 	rendezvous->Connect();
-	rendezvous->SynchronousBarrier("initial", size);
+	rendezvous->SynchronousBarrier("initial");
 	larg.ID = rank;
 
 	ret = port_init(&larg, localIP, localMAC, blockedIFs);
@@ -531,7 +531,7 @@ int main(int argc, char **argv)
 	}
 	//contribute to self latency to redis.
 	rendezvous->PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
-	rendezvous->SynchronousBarrier("selfProbeSubmission", size);
+	rendezvous->SynchronousBarrier("selfProbeSubmission");
 
 	auto outputs = ap.retrieve<std::vector<string>>("outputs");
 	auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
