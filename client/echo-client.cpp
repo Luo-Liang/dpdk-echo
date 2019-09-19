@@ -56,6 +56,7 @@
 #include <unistd.h>
 #include <chrono>
 #include <hiredis/hiredis.h>
+#include <string>
 
 #include "../shared/rendezvous.h"
 #include "../shared/dpdk-helpers.h"
@@ -137,7 +138,7 @@ int ProbeSelfLatency(void *arg)
 			end = std::chrono::high_resolution_clock::now();
 			for (int i = 0; i < recv; i++)
 			{
-			        if (found == false and pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq, round))
+				if (found == false and pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq, round))
 				{
 					found = true;
 					selfProbeCount--;
@@ -145,11 +146,11 @@ int ProbeSelfLatency(void *arg)
 					auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 					elapsed += diff;
 				}
-				else if(myarg->verbose)
-				  {
-				    printf("[%d]self probe received unknown message. seq = %d. round = %d\n", myarg->ID, seq, round);
-				    pkt_dump(rbufs[i]);
-				  }
+				else if (myarg->verbose)
+				{
+					printf("[%d]self probe received unknown message. seq = %d. round = %d\n", myarg->ID, seq, round);
+					pkt_dump(rbufs[i]);
+				}
 				rte_pktmbuf_free(rbufs[i]);
 			}
 			size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -164,7 +165,7 @@ int ProbeSelfLatency(void *arg)
 			}
 		}
 	}
-	int ret = counts == 0? 0 : (int)(1.0 * elapsed / counts);
+	int ret = counts == 0 ? 0 : (int)(1.0 * elapsed / counts);
 	printf("[%d] self probe latency = %d. %d/%d.\n", myarg->ID, ret, counts, PROBE_COUNT);
 	return ret;
 }
@@ -221,12 +222,31 @@ static int lcore_execute(void *arg)
 
 	std::vector<endhost> recvOrder = myarg->dsts;
 	std::reverse(recvOrder.begin(), recvOrder.end() - 1);
+	if (myarg->verbose)
+	{
+		std::overall = "[" + std::to_string() + "] Routing Information";
+		overall += "\n    dest:\n";
+		std::string sendSeq = "        ";
+		for (int i = 0; i < myarg->dsts.size(); i++)
+		{
+			sendSeq += "," + dbgStringFromIP(myarg->dsts.at(i).ip) + "(" + dbgStringFromMAC(myarg->dsts.at(i).mac) + ")";
+		}
+		overall += sendSeq;
+		overall += "\n    recv:\n";
+		std::string recvSeq = "        ";
+		for (int i = 0; i < recvOrder.size(); i++)
+		{
+			recvSeq += "," + dbgStringFromIP(recvOrder.at(i).ip) + "(" + dbgStringFromMAC(recvOrder.at(i).mac) + ")";
+		}
+		overall += recvSeq;
+		printf("%s", overall.c_str());
+	}
 	for (unsigned short round = 1; round < myarg->dsts.size() - 1; round++)
 	{
 		//build packet.
 		for (int i = 0; i < samples; i++)
 		{
-		    pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), pkt_type::ECHO_REQ, i, round);
+			pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), pkt_type::ECHO_REQ, i, round);
 			//response ip is not same as dest ip
 			pkt_build(resBufs[i], myarg->src, recvOrder.at(round), pkt_type::ECHO_RES, i, round);
 		}
@@ -245,7 +265,7 @@ static int lcore_execute(void *arg)
 			//do this only if not enough sample is collected.
 			if (sendMoreProbe)
 			{
-				if(pid >= samples)
+				if (pid >= samples)
 				{
 					rte_exit(EXIT_FAILURE, "error. pid must be less than sample [%d]. r=%d. pid=%d. samples=%d\n", myarg->ID, round, pid, samples);
 				}
@@ -257,7 +277,7 @@ static int lcore_execute(void *arg)
 				}
 				else if (myarg->verbose)
 				{
-				  printf("[%d][round %d] echo request sent. pid = %d.\n", myarg->ID, round, pid);
+					printf("[%d][round %d] echo request sent. pid = %d.\n", myarg->ID, round, pid);
 					pkt_dump(reqMBufs[pid]);
 				}
 			}
@@ -288,7 +308,7 @@ static int lcore_execute(void *arg)
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
-							  printf("[%d][round %d] echo response received. %d us. seq = %d. r = %d\n", myarg->ID, round, (uint32_t)elapsed, seq,r);
+								printf("[%d][round %d] echo response received. %d us. seq = %d. r = %d\n", myarg->ID, round, (uint32_t)elapsed, seq, r);
 								pkt_dump(rbufs[i]);
 							}
 							sendMoreProbe = (pid < myarg->counter - 1);
@@ -304,9 +324,9 @@ static int lcore_execute(void *arg)
 								pid++;
 							}
 						}
-						else if(myarg->verbose)
+						else if (myarg->verbose)
 						{
-						  printf("[%d][round %d] echo response received but not expected. seq = %d. expecting = %d (may be garbage). r = %d\n", myarg->ID, round, seq, pid, r);
+							printf("[%d][round %d] echo response received but not expected. seq = %d. expecting = %d (may be garbage). r = %d\n", myarg->ID, round, seq, pid, r);
 							pkt_dump(rbufs[i]);
 						}
 					}
@@ -315,7 +335,7 @@ static int lcore_execute(void *arg)
 
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] echo request received. seq = %d. r = %d \n", myarg->ID, round, seq, r); //, (uint32_t)elapsed);
+							printf("[%d][round %d] echo request received. seq = %d. r = %d. \n", myarg->ID, round, seq, r); //, (uint32_t)elapsed);
 							pkt_dump(rbufs[i]);
 						}
 						//someone else's request. Send response.
@@ -326,7 +346,7 @@ static int lcore_execute(void *arg)
 						}
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] echo request responded. seq = %d. r = %d\n", myarg->ID, round, seq,r); //, (uint32_t)elapsed);
+							printf("[%d][round %d] echo request responded. seq = %d. r = %d\n", myarg->ID, round, seq, r); //, (uint32_t)elapsed);
 							pkt_dump(resMBufs[pid]);
 						}
 					}
@@ -347,7 +367,7 @@ static int lcore_execute(void *arg)
 						//this will trigger a resend.
 						if (myarg->verbose)
 						{
-						  printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d. %d/%d\n", myarg->ID, round, pid, consecTimeouts, (int)myarg->samples.at(round).size(), samples); //, (uint32_t)elapsed);
+							printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d. %d/%d\n", myarg->ID, round, pid, consecTimeouts, (int)myarg->samples.at(round).size(), samples); //, (uint32_t)elapsed);
 						}
 
 						//myarg->samples.push_back(TIME_OUT);
@@ -422,11 +442,11 @@ int main(int argc, char **argv)
 	//output dids
 	//receive order. This can be irrelevant to dids.
 	int counter = 10;
-	while(counter > 0)
-	  {
-	    sleep(1);
-	    counter--;
-	  }
+	while (counter > 0)
+	{
+		sleep(1);
+		counter--;
+	}
 	ap.parse(argc, (const char **)argv);
 
 	std::string localIP = ap.retrieve<std::string>("srcIp");
@@ -507,7 +527,7 @@ int main(int argc, char **argv)
 	int selfLatency = 0;
 	if (ap.count("noSelfProbe") == 0)
 	{
-	  selfLatency = ProbeSelfLatency(&larg);
+		selfLatency = ProbeSelfLatency(&larg);
 	}
 	//contribute to self latency to redis.
 	rendezvous->PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
@@ -544,13 +564,13 @@ int main(int argc, char **argv)
 	/* print status */
 	for (size_t i = 0; i < size - 1; i++)
 	{
-	  auto remote=(rank + i + 1) % size;
-	  auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-	  for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
-	    {
-	      larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
-	    }
-	  EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
+		auto remote = (rank + i + 1) % size;
+		auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
+		for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
+		{
+			larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+		}
+		EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
 	}
 	//free(largs);
 	return 0;

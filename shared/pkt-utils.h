@@ -23,6 +23,9 @@ struct udphdr
 void MACFromString(std::string str, uint8_t bytes[6]);
 void IPFromString(std::string str, uint8_t bytes[4]);
 
+std::string dbgStringFromIP(uint8_t ip[4]);
+std::string dbgStringFromMAC(uint8_t mac[6]);
+
 uint16_t pkt_size();
 void pkt_build(char *pkt_ptr,
 			   endhost &src,
