@@ -370,7 +370,7 @@ static int lcore_execute(void *arg)
 						found = true;
 						consecTimeouts++;
 						//this will trigger a resend.
-						if (myarg->verbose || true)
+						if (myarg->verbose)
 						{
 							printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d. %d/%d\nLost packet:", myarg->ID, round, pid, consecTimeouts, (int)myarg->samples.at(round).size(), samples); //, (uint32_t)elapsed);
 							pkt_dump(reqMBufs[pid]);
