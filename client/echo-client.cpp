@@ -201,7 +201,7 @@ static int lcore_execute(void *arg)
 	auto end = std::chrono::high_resolution_clock::now();
 	auto now = std::chrono::high_resolution_clock::now();
 	uint64_t elapsed;
-
+	const int TIME_OUT_COUNTS = 5;
 	myarg = (struct lcore_args *)arg;
 	queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
 	//one port probably needs to be touched by multiple procs in real app.
@@ -209,7 +209,6 @@ static int lcore_execute(void *arg)
 	//phase = myarg->phase;
 	//bsz = BATCH_SIZE;
 	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
-	int worldSize = myarg->worldSize;
 	int samples = myarg->counter;
 
 	rte_mbuf **reqMBufs;
@@ -241,7 +240,7 @@ static int lcore_execute(void *arg)
 		overall += recvSeq;
 		printf("%s", overall.c_str());
 	}
-	for (unsigned short round = 1; round < myarg->dsts.size() - 1; round++)
+	for (unsigned short round = 0; round < myarg->dsts.size() - 1; round++)
 	{
 		//build packet.
 		for (int i = 0; i < samples; i++)
@@ -254,7 +253,7 @@ static int lcore_execute(void *arg)
 		int consecTimeouts = 0;
 		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round));
 		int pid = 0;
-		auto sendMoreProbe = (pid < myarg->counter && consecTimeouts < 10);
+		auto sendMoreProbe = (pid < myarg->counter && consecTimeouts < TIME_OUT_COUNTS);
 		std::string barrierName = CxxxxStringFormat("round %d", round);
 
 		while (sendMoreProbe || rendezvous->NonBlockingQueryBarrier(barrierName) == false)
@@ -374,7 +373,7 @@ static int lcore_execute(void *arg)
 						//choosing median. penalizing drops.
 						//myarg->samples.push_back(1000);
 						//}
-						sendMoreProbe = (pid < myarg->counter - 1 && consecTimeouts < 10);
+						sendMoreProbe = (pid < myarg->counter - 1 && consecTimeouts < TIME_OUT_COUNTS);
 						if (sendMoreProbe == false)
 						{
 							//a flip of truth value means a submission to the barrier
