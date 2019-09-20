@@ -78,7 +78,6 @@ int port_init(lcore_args *larg, std::string srcIp, std::string srcMac, std::vect
     snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
              tmp.addr_bytes[0], tmp.addr_bytes[1], tmp.addr_bytes[2], tmp.addr_bytes[3], tmp.addr_bytes[4], tmp.addr_bytes[5]);
     std::string macString(macStr);
-    bool found = false;
     rte_eth_macaddr_get(port, (ether_addr *)larg->src.mac);
     //since nb_ports < suppliedIp.size, assign port-th to suppliedIps
     IPFromString(srcIp, larg->src.ip);
@@ -163,7 +162,7 @@ void CoreIdxMap(std::unordered_map<int, int> &lCore2Idx, std::unordered_map<int,
             }
             activatedCoreCntr++;
         }
-        if (activatedCoreCntr == threadnum)
+        if (activatedCoreCntr == (int)threadnum)
         {
             break;
         }

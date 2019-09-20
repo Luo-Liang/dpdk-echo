@@ -143,7 +143,7 @@ public:
 									//CHECK(redisCommand(pContext, "FLUSHALL"));
 	}
 
-	bool SubmitBarrier(std::string workName)
+	void SubmitBarrier(std::string workName)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);
 		assert(dbgSubmissions.find(workName) == dbgSubmissions.end());

@@ -34,7 +34,7 @@ $(error "Please define RTE_SDK environment variable")
 endif
 
 
-CXXFLAGS += -std=c++11 
+CXXFLAGS += -std=c++11 -Wextra -Wall
 #SRCS-y := ./echo-client.cpp ../cluster-cfg/cluster-cfg.cpp ./pkt-utils.cpp
 #mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir = $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
@@ -53,6 +53,6 @@ APP = echo-client
 LDFLAGS += -lstdc++ -lhiredis
 CFLAGS += -O0 -g
 #CFLAGS += $(WERROR_FLAGS)
-CFLAGS += -std=c++11
+CFLAGS += -std=c++11 -Wextra -Wall
 include $(RTE_SDK)/mk/rte.extapp.mk
 $(info VAR="$(CC)")

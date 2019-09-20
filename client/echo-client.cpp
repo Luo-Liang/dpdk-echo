@@ -118,7 +118,7 @@ int ProbeSelfLatency(void *arg)
 	while (selfProbeCount > 0)
 	{
 		start = std::chrono::high_resolution_clock::now();
-		if (0 > rte_eth_tx_burst(port, queue, &pBuf, 1))
+		if (0 == rte_eth_tx_burst(port, queue, &pBuf, 1))
 		{
 			rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
 		}
@@ -171,7 +171,7 @@ int ProbeSelfLatency(void *arg)
 }
 NonblockingSingleBarrier *rendezvous;
 
-void requestBuffers(rte_mempool *pool, int samples, int referenceCount, rte_mbuf **&mBufs, char **&pBufs)
+void requestBuffers(rte_mempool *pool, int samples, rte_mbuf **&mBufs, char **&pBufs)
 {
 	mBufs = (rte_mbuf **)malloc(sizeof(rte_mbuf *) * samples);
 	pBufs = (char **)malloc(sizeof(char *) * samples);
@@ -183,8 +183,7 @@ void requestBuffers(rte_mempool *pool, int samples, int referenceCount, rte_mbuf
 
 	for (int i = 0; i < samples; i++)
 	{
-		rte_mbuf_refcnt_set(mBufs[i], referenceCount);
-		pkt_set_attribute(mBufs[i]);
+
 		pBufs[i] = rte_pktmbuf_append(mBufs[i], pkt_size());
 	}
 }
@@ -193,7 +192,6 @@ static int lcore_execute(void *arg)
 {
 	struct lcore_args *myarg;
 	uint8_t queue;
-	struct rte_mempool *pool;
 	//volatile enum benchmark_phase *phase;
 	//receive buffers.
 	struct rte_mbuf *rbufs[BATCH_SIZE];
@@ -205,7 +203,6 @@ static int lcore_execute(void *arg)
 	myarg = (struct lcore_args *)arg;
 	queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
 	//one port probably needs to be touched by multiple procs in real app.
-	pool = myarg->pool;
 	//phase = myarg->phase;
 	//bsz = BATCH_SIZE;
 	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
@@ -215,8 +212,8 @@ static int lcore_execute(void *arg)
 	rte_mbuf **resMBufs;
 	char **reqBufs;
 	char **resBufs;
-	requestBuffers(myarg->pool, samples, samples * myarg->dsts.size(), reqMBufs, reqBufs);
-	requestBuffers(myarg->pool, samples, samples * myarg->dsts.size(), resMBufs, resBufs);
+	requestBuffers(myarg->pool, samples, reqMBufs, reqBufs);
+	requestBuffers(myarg->pool, samples, resMBufs, resBufs);
 	//last round is just sending to self.
 
 	std::vector<endhost> recvOrder = myarg->dsts;
@@ -226,14 +223,14 @@ static int lcore_execute(void *arg)
 		std::string overall = "[" + std::to_string(myarg->ID) + "] Routing Information";
 		overall += "\n    dest:\n";
 		std::string sendSeq = "        ";
-		for (int i = 0; i < myarg->dsts.size(); i++)
+		for (int i = 0; i < (int)myarg->dsts.size(); i++)
 		{
 			sendSeq += "," + dbgStringFromIP(myarg->dsts.at(i).ip) + "(" + dbgStringFromMAC(myarg->dsts.at(i).mac) + ")";
 		}
 		overall += sendSeq;
 		overall += "\n    recv:\n";
 		std::string recvSeq = "        ";
-		for (int i = 0; i < recvOrder.size(); i++)
+		for (int i = 0; i < (int)recvOrder.size(); i++)
 		{
 			recvSeq += "," + dbgStringFromIP(recvOrder.at(i).ip) + "(" + dbgStringFromMAC(recvOrder.at(i).mac) + ")";
 		}
@@ -246,8 +243,12 @@ static int lcore_execute(void *arg)
 		for (int i = 0; i < samples; i++)
 		{
 			pkt_build(reqBufs[i], myarg->src, myarg->dsts.at(round), pkt_type::ECHO_REQ, i, round);
+			rte_mbuf_refcnt_set(reqMBufs[i], UINT16_MAX);
+			pkt_set_attribute(reqMBufs[i]);
 			//response ip is not same as dest ip
 			pkt_build(resBufs[i], myarg->src, recvOrder.at(round), pkt_type::ECHO_RES, i, round);
+			rte_mbuf_refcnt_set(resMBufs[i], UINT16_MAX);
+			pkt_set_attribute(resMBufs[i]);
 		}
 
 		int consecTimeouts = 0;
@@ -271,7 +272,7 @@ static int lcore_execute(void *arg)
 				}
 				//pkt_dump(bufs[i]);
 				start = std::chrono::high_resolution_clock::now();
-				if (0 > rte_eth_tx_burst(port, queue, &reqMBufs[pid], 1))
+				if (0 == rte_eth_tx_burst(port, queue, &reqMBufs[pid], 1))
 				{
 					rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
 				}
@@ -339,7 +340,7 @@ static int lcore_execute(void *arg)
 						}
 						//someone else's request. Send response.
 						//let dpdk decide whether to batch or not
-						if (0 > rte_eth_tx_burst(port, queue, &resMBufs[seq], 1))
+						if (0 == rte_eth_tx_burst(port, queue, &resMBufs[seq], 1))
 						{
 							rte_exit(EXIT_FAILURE, "Error: response send failed\n");
 						}
@@ -401,10 +402,7 @@ static int lcore_execute(void *arg)
 
 int main(int argc, char **argv)
 {
-	unsigned lcore_id;
-	uint8_t threadnum;
 	struct lcore_args larg;
-
 	/* Initialize the Environment Abstraction Layer (EAL) */
 	int ret = rte_eal_init(argc, argv);
 	if (ret < 0)
@@ -551,7 +549,7 @@ int main(int argc, char **argv)
 	larg.verbose = verbose;
 	larg.selfProbe = !noSelfProbe;
 	larg.dsts.resize(dstMacs.size());
-	for (int i = 0; i < dstMacs.size(); i++)
+	for (int i = 0; i < (int)dstMacs.size(); i++)
 	{
 		IPFromString(dstIps.at(i), larg.dsts.at(i).ip);
 		MACFromString(dstMacs.at(i), larg.dsts.at(i).mac);
@@ -561,11 +559,11 @@ int main(int argc, char **argv)
 	printf("All threads have finished executing.\n");
 
 	/* print status */
-	for (size_t i = 0; i < size - 1; i++)
+	for (int i = 0; i < size - 1; i++)
 	{
 		auto remote = (rank + i + 1) % size;
 		auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-		for (size_t eleIdx; eleIdx < larg.samples.at(i).size(); eleIdx++)
+		for (int eleIdx; eleIdx < (int)larg.samples.at(i).size(); eleIdx++)
 		{
 			larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
 		}
