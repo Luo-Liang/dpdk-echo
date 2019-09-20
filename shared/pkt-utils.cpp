@@ -175,8 +175,8 @@ void pkt_build(char *pkt_ptr,
 void pkt_set_attribute(struct rte_mbuf *buf)
 {
 	//buf->ol_flags |= PKT_TX_IPV4;
-	buf->l2_len = sizeof(struct ether_hdr);
-	buf->l3_len = sizeof(struct ipv4_hdr);
+	//buf->l2_len = sizeof(struct ether_hdr);
+	//buf->l3_len = sizeof(struct ipv4_hdr);
 }
 
 void pkt_prepare_request(char *pkt_ptr, unsigned short sequence, unsigned short round)
