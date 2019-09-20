@@ -276,7 +276,7 @@ static int lcore_execute(void *arg)
 				{
 					rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
 				}
-				else if (myarg->verbose)
+				//else if (myarg->verbose)
 				{
 					printf("[%d][round %d] echo request sent. pid = %d.\n", myarg->ID, round, pid);
 					pkt_dump(reqMBufs[pid]);
