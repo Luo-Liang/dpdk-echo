@@ -276,7 +276,7 @@ static int lcore_execute(void *arg)
 				{
 					rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets");
 				}
-				//else if (myarg->verbose)
+				else if (myarg->verbose)
 				{
 					printf("[%d][round %d] echo request sent. pid = %d.\n", myarg->ID, round, pid);
 					pkt_dump(reqMBufs[pid]);
@@ -365,9 +365,10 @@ static int lcore_execute(void *arg)
 						found = true;
 						consecTimeouts++;
 						//this will trigger a resend.
-						if (myarg->verbose)
+						if (myarg->verbose || true)
 						{
-							printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d. %d/%d\n", myarg->ID, round, pid, consecTimeouts, (int)myarg->samples.at(round).size(), samples); //, (uint32_t)elapsed);
+							printf("[%d][round %d] request timeout pid=%d. consecTimeouts=%d. %d/%d\nLost packet:", myarg->ID, round, pid, consecTimeouts, (int)myarg->samples.at(round).size(), samples); //, (uint32_t)elapsed);
+							pkt_dump(reqMBufs[pid]);
 						}
 
 						//myarg->samples.push_back(TIME_OUT);
