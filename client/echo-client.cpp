@@ -569,9 +569,12 @@ int main(int argc, char **argv)
 	{
 		auto remote = (rank + i + 1) % size;
 		auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-		for (int eleIdx = 0; eleIdx < (int)larg.samples.at(i).size(); eleIdx++)
+		if(noSelfProbe == false)
 		{
-			larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+		  for (int eleIdx = 0; eleIdx < (int)larg.samples.at(i).size(); eleIdx++)
+		  {
+		     larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+		  }
 		}
 		EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
 	}
