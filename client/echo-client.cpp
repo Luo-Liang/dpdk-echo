@@ -350,6 +350,11 @@ static int lcore_execute(void *arg)
 							pkt_dump(resMBufs[pid]);
 						}
 					}
+					else
+					{
+						printf("[%d][round %d] unknown packet received. \n", myarg->ID, round); //, (uint32_t)elapsed);
+						pkt_dump(resMBufs[pid]);
+					}
 					rte_pktmbuf_free(rbufs[i]);
 				}
 
