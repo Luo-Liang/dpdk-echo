@@ -171,7 +171,7 @@ int ProbeSelfLatency(void *arg)
 }
 NonblockingSingleBarrier *rendezvous;
 
-void requestBuffers(rte_mempool *pool, int samples, rte_mbuf **&mBufs, char **&pBufs)
+void requestBuffers(rte_mempool *pool, int samples, int referenceCount, rte_mbuf **&mBufs, char **&pBufs)
 {
 	mBufs = (rte_mbuf **)malloc(sizeof(rte_mbuf *) * samples);
 	pBufs = (char **)malloc(sizeof(char *) * samples);
@@ -183,7 +183,7 @@ void requestBuffers(rte_mempool *pool, int samples, rte_mbuf **&mBufs, char **&p
 
 	for (int i = 0; i < samples; i++)
 	{
-		rte_mbuf_refcnt_set(mBufs[i], samples);
+		rte_mbuf_refcnt_set(mBufs[i], referenceCount);
 		pkt_set_attribute(mBufs[i]);
 		pBufs[i] = rte_pktmbuf_append(mBufs[i], pkt_size());
 	}
@@ -215,8 +215,8 @@ static int lcore_execute(void *arg)
 	rte_mbuf **resMBufs;
 	char **reqBufs;
 	char **resBufs;
-	requestBuffers(myarg->pool, samples, reqMBufs, reqBufs);
-	requestBuffers(myarg->pool, samples, resMBufs, resBufs);
+	requestBuffers(myarg->pool, samples, samples * myarg->dsts.size(), reqMBufs, reqBufs);
+	requestBuffers(myarg->pool, samples, samples * myarg->dsts.size(), resMBufs, resBufs);
 	//last round is just sending to self.
 
 	std::vector<endhost> recvOrder = myarg->dsts;
