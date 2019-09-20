@@ -210,8 +210,8 @@ static int lcore_execute(void *arg)
 
 	rte_mbuf **reqMBufs;
 	rte_mbuf **resMBufs;
-	char **reqBufs;
-	char **resBufs;
+	char **reqBufs = NULL;
+	char **resBufs = NULL;
 	requestBuffers(myarg->pool, samples, reqMBufs, reqBufs);
 	requestBuffers(myarg->pool, samples, resMBufs, resBufs);
 	//last round is just sending to self.
