@@ -140,7 +140,7 @@ int ProbeSelfLatency(void *arg)
                 rte_pktmbuf_free(rbufs[i]);
             }
             long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-            if (timeDelta > 1000)
+            if (found == false && timeDelta > 1000)
             {
                 //1 sec is long enough for us to tell the packet is lost.
                 found = true;
@@ -268,7 +268,7 @@ lcore_execute(void *arg)
     }
 
     int selfLatency = 0;
-    if (false && myarg->selfProbe)
+    if (myarg->selfProbe)
     {
         selfLatency = ProbeSelfLatency(arg);
         printf("Thread %d self probe latency = %d.\n", myarg->tid, (uint32_t)selfLatency);
