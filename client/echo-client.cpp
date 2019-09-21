@@ -573,7 +573,7 @@ int main(int argc, char **argv)
 		{
 			auto remote = (rank + i + 1) % size;
 			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-			if(remoteSelfLatency == 0)
+			if(remoteSelfLatency == 0 || selfLatency == 0)
 			{
 				applySelfProbeAdjustment = false;
 				printf("warning: self probe latency is turned on, but some remote(s) did not have qualified data.\n");
