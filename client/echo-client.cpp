@@ -564,17 +564,34 @@ int main(int argc, char **argv)
 
 	printf("All threads have finished executing.\n");
 
+	bool applySelfProbeAdjustment = !noSelfProbe;
 	/* print status */
+
+	if (applySelfProbeAdjustment)
+	{
+		for (int i = 0; i < size - 1; i++)
+		{
+			auto remote = (rank + i + 1) % size;
+			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
+			if(remoteSelfLatency == 0)
+			{
+				applySelfProbeAdjustment = false;
+				printf("warning: self probe latency is turned on, but some remote(s) did not have qualified data.\n");
+				break;
+			}
+		}
+	}
+
 	for (int i = 0; i < size - 1; i++)
 	{
-		auto remote = (rank + i + 1) % size;
-		auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-		if(noSelfProbe == false)
+		if (applySelfProbeAdjustment)
 		{
-		  for (int eleIdx = 0; eleIdx < (int)larg.samples.at(i).size(); eleIdx++)
-		  {
-		     larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
-		  }
+			auto remote = (rank + i + 1) % size;
+			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
+			for (int eleIdx = 0; eleIdx < (int)larg.samples.at(i).size(); eleIdx++)
+			{
+				larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
+			}
 		}
 		EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
 	}
