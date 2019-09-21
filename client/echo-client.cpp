@@ -140,7 +140,7 @@ int ProbeSelfLatency(void *arg)
                 rte_pktmbuf_free(rbufs[i]);
             }
             long timeDelta = (long)(end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-            if (found == false && timeDelta > 1000)
+            if (timeDelta > 1000)
             {
                 //1 sec is long enough for us to tell the packet is lost.
                 found = true;
