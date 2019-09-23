@@ -281,7 +281,7 @@ static int lcore_execute(void *arg)
 							ETHERIP _ip_;
 							_ip_.ip = mypkt->pro_hdr.ip.src_addr;
 							auto srip = dbgStringFromIP(_ip_.ips);
-							printf("[%d][round %d] unknown packet received from %s. seq = %d. r = %d. PAYLOAD = %s.\n", myarg->ID, round, srip.c_str(), seq, r, mypkt->payload); //, (uint32_t)elapsed);
+							printf("[%d][round %d] unknown packet received from %s. seq = %d. r = %d. PAYLOAD = %s.\n[e]CHKSUM = %d vs %d\n[e]ip %s vs %s.\n", myarg->ID, round, srip.c_str(), seq, r, mypkt->payload, responseChecksums.at(pid), mypkt->pro_hdr.ip.hdr_checksum, dbgStringFromIP(recvOrder.at(round).ip).c_str(), srip.c_str()); //, (uint32_t)elapsed);
 							pkt_dump(resMBufs[pid]);
 						}
 						else
