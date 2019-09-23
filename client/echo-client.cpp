@@ -72,7 +72,6 @@
 //     BENCHMARK_DONE,
 // } __attribute__((aligned(64)));
 
-uint64_t tot_proc_pkts = 0, tot_elapsed = 0;
 const int MAX_INTERVAL = 1000;
 /*static inline void
 pkt_dump(struct rte_mbuf *buf)
@@ -363,7 +362,6 @@ int main(int argc, char **argv)
 	ap.addArgument("--az", 1, true);
 	ap.addArgument("--verbose", 1, true);
 	ap.addArgument("--payload", 1, true);
-	ap.addArgument("--noSelfProbe", 1, true);
 	ap.addArgument("--rendezvous", 1, false);
 	//output dids
 	//receive order. This can be irrelevant to dids.
@@ -404,12 +402,6 @@ int main(int argc, char **argv)
 	if (ap.count("az") > 0)
 	{
 		MSFTAZ = false;
-	}
-
-	bool noSelfProbe = false;
-	if (ap.count("noSelfProbe") > 0)
-	{
-		noSelfProbe = true;
 	}
 
 	bool verbose = false;
@@ -469,7 +461,6 @@ int main(int argc, char **argv)
 	larg.AzureSupport = MSFTAZ;
 	larg.interval = interval;
 	larg.verbose = verbose;
-	larg.selfProbe = !noSelfProbe;
 	larg.dsts.resize(dstMacs.size());
 	for (int i = 0; i < (int)dstMacs.size(); i++)
 	{
@@ -480,39 +471,8 @@ int main(int argc, char **argv)
 
 	printf("All threads have finished executing.\n");
 
-	bool applySelfProbeAdjustment = !noSelfProbe;
-	/* print status */
-	int selfLatency = (int)std::accumulate(larg.samples.back().begin(), larg.samples.back().end(), 0.0) / larg.samples.back().size();
-
-	if (applySelfProbeAdjustment)
+	for (int i = 0; i < size; i++)
 	{
-
-		rendezvous->PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
-		rendezvous->SynchronousBarrier("selfProbeSubmission");
-		for (int i = 0; i < size - 1; i++)
-		{
-			auto remote = (rank + i + 1) % size;
-			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-			if (remoteSelfLatency == 0 || selfLatency == 0)
-			{
-				applySelfProbeAdjustment = false;
-				printf("warning: self probe latency is turned on, but some remote(s) did not have qualified data.\n");
-				break;
-			}
-		}
-	}
-
-	for (int i = 0; i < size - 1; i++)
-	{
-		if (applySelfProbeAdjustment)
-		{
-			auto remote = (rank + i + 1) % size;
-			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-			for (int eleIdx = 0; eleIdx < (int)larg.samples.at(i).size(); eleIdx++)
-			{
-				larg.samples.at(i).at(eleIdx) -= (remoteSelfLatency + selfLatency);
-			}
-		}
 		EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
 	}
 	//free(largs);
