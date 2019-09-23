@@ -33,6 +33,7 @@
 
 #define __STDC_FORMAT_MACROS 1
 
+#include <numeric>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -85,92 +86,6 @@ pkt_dump(struct rte_mbuf *buf)
 //     return std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count();
 // }
 
-int ProbeSelfLatency(void *arg)
-{
-	//printf("here1");
-	auto myarg = (lcore_args *)arg;
-	auto pool = myarg->pool;
-	auto port = myarg->associatedPort;
-	auto pBuf = rte_pktmbuf_alloc(pool);
-	auto queue = 0;
-	const int PROBE_COUNT = 1000;
-	int selfProbeCount = PROBE_COUNT;
-	if (pBuf == NULL)
-	{
-		rte_exit(EXIT_FAILURE, "Error: pktmbuf pool allocation failed for self test probe.");
-	}
-	//printf("here3");
-	rte_mbuf_refcnt_set(pBuf, selfProbeCount);
-	auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
-	unsigned short seq = 0;
-	unsigned short round = 0
-	uint32_t srcip = 0;
-	pkt_build(pkt_ptr, myarg->src, myarg->src, pkt_type::ECHO_REQ, seq, round);
-	//pkt_dump(pBuf);
-	//printf("here2");
-	struct rte_mbuf *rbufs[BATCH_SIZE];
-
-	auto start = std::chrono::high_resolution_clock::now();
-	auto end = std::chrono::high_resolution_clock::now();
-
-	size_t elapsed = 0;
-	uint32_t selfProbeIP = ip_2_uint32(myarg->src.ip);
-	int counts = 0;
-	while (selfProbeCount > 0)
-	{
-		start = std::chrono::high_resolution_clock::now();
-		if (0 == rte_eth_tx_burst(port, queue, &pBuf, 1))
-		{
-			rte_exit(EXIT_FAILURE, "Error: cannot tx_burst packets self test burst failure");
-		}
-		//else if(myarg->verbose)
-		// {
-		//    printf("[%d] self probe sent\n", myarg->ID);
-		//    pkt_dump(pBuf);
-		//  }
-		bool found = false;
-		while (found == false)
-		{
-			int recv = 0;
-			if ((recv = rte_eth_rx_burst(port, queue, rbufs, BATCH_SIZE)) < 0)
-			{
-				rte_exit(EXIT_FAILURE, "Error: rte_eth_rx_burst failed in self probe\n");
-			}
-			end = std::chrono::high_resolution_clock::now();
-			for (int i = 0; i < recv; i++)
-			{
-			  auto type = pkt_process(rbufs[i], selfProbeIP, srcip,seq, round);
-			        if (found == false && pkt_type::ECHO_REQ == type && srcip == selfProbeIP)
-				{
-					found = true;
-					selfProbeCount--;
-					counts++;
-					auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-					elapsed += diff;
-				}
-				else if (myarg->verbose)
-				{
-					printf("[%d]self probe received unknown message. seq = %d. round = %d\n", myarg->ID, seq, round);
-					pkt_dump(rbufs[i]);
-				}
-				rte_pktmbuf_free(rbufs[i]);
-			}
-			size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-			if (found == false && timeDelta > 1000000)
-			{
-				//1ms sec is long enough for us to tell the packet is lost.
-				found = true;
-				//this will trigger a resend.
-				selfProbeCount--;
-				//myarg->samples.push_back(timeDelta);
-				//}
-			}
-		}
-	}
-	int ret = counts == 0 ? 0 : (int)(1.0 * elapsed / counts);
-	printf("[%d] self probe latency = %d. %d/%d.\n", myarg->ID, ret, counts, PROBE_COUNT);
-	return ret;
-}
 NonblockingSingleBarrier *rendezvous;
 
 void requestBuffers(rte_mempool *pool, int samples, rte_mbuf **&mBufs, char **&pBufs)
@@ -200,14 +115,12 @@ static int lcore_execute(void *arg)
 	auto start = std::chrono::high_resolution_clock::now();
 	auto end = std::chrono::high_resolution_clock::now();
 	auto now = std::chrono::high_resolution_clock::now();
-	uint64_t elapsed;
 	const int TIME_OUT_COUNTS = 5;
 	myarg = (struct lcore_args *)arg;
 	queue = 0; //myarg->tid; one port is only touched by one processor for dpdk-echo.
 	//one port probably needs to be touched by multiple procs in real app.
 	//phase = myarg->phase;
 	//bsz = BATCH_SIZE;
-	uint32_t expectedMyIp = ip_2_uint32(myarg->src.ip);
 	int samples = myarg->counter;
 
 	rte_mbuf **reqMBufs;
@@ -218,6 +131,7 @@ static int lcore_execute(void *arg)
 	requestBuffers(myarg->pool, samples, resMBufs, resBufs);
 	//last round is just sending to self.
 
+	//the order in which REQ messages are received.
 	std::vector<endhost> recvOrder = myarg->dsts;
 	std::reverse(recvOrder.begin(), recvOrder.end() - 1);
 	if (myarg->verbose)
@@ -239,7 +153,10 @@ static int lcore_execute(void *arg)
 		overall += recvSeq;
 		printf("%s", overall.c_str());
 	}
-	for (unsigned short round = 0; round < myarg->dsts.size() - 1; round++)
+	//assimilation of self probe latency into the main probe.
+	std::vector<uint16_t> responseChecksums(samples);
+	char checkSumScratchBuffer[8192];
+	for (unsigned short round = 0; round < myarg->dsts.size(); round++)
 	{
 		//build packet.
 		for (int i = 0; i < samples; i++)
@@ -251,7 +168,10 @@ static int lcore_execute(void *arg)
 			pkt_build(resBufs[i], myarg->src, recvOrder.at(round), pkt_type::ECHO_RES, i, round);
 			rte_mbuf_refcnt_set(resMBufs[i], UINT16_MAX);
 			pkt_set_attribute(resMBufs[i]);
+
+			responseChecksums.at(i) = pkt_build(checkSumScratchBuffer, myarg->dsts.at(round), myarg->src, pkt_type::ECHO_RES, i, round);
 		}
+		uint32_t reqSenderIP = ip_2_uint32(recvOrder.at(round).ip);
 
 		int consecTimeouts = 0;
 		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round));
@@ -298,9 +218,9 @@ static int lcore_execute(void *arg)
 				{
 					unsigned short seq = 0;
 					unsigned short r = 0;
-					uint32_t srcip = 0;
-					auto type = pkt_process(rbufs[i], expectedMyIp, srcip, seq, r);
-					if((type == ECHO_RES && srcip != 
+					/*Ignored if simply a request*/
+					uint16_t responseCksum = responseChecksums.at(pid);
+					auto type = pkt_process(rbufs[i], reqSenderIP, responseCksum, seq, r);
 					if (type == ECHO_RES)
 					{
 						if (sendMoreProbe && seq == pid)
@@ -309,7 +229,7 @@ static int lcore_execute(void *arg)
 							consecTimeouts = 0;
 							found = true;
 							//__sync_fetch_and_add(&tot_proc_pkts, 1);
-							elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
+							uint64_t elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //getDuration(end, start);
 							myarg->samples.at(round).push_back(elapsed);
 							if (myarg->verbose)
 							{
@@ -336,7 +256,6 @@ static int lcore_execute(void *arg)
 					}
 					else if (type == ECHO_REQ)
 					{
-
 						if (myarg->verbose)
 						{
 							printf("[%d][round %d] echo request received. seq = %d. r = %d. \n", myarg->ID, round, seq, r); //, (uint32_t)elapsed);
@@ -531,14 +450,7 @@ int main(int argc, char **argv)
 		printf("port init failed. %s.\n", rte_strerror(rte_errno));
 	}
 
-	int selfLatency = 0;
-	if (ap.count("noSelfProbe") == 0)
-	{
-		selfLatency = ProbeSelfLatency(&larg);
-	}
 	//contribute to self latency to redis.
-	rendezvous->PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
-	rendezvous->SynchronousBarrier("selfProbeSubmission");
 
 	auto outputs = ap.retrieve<std::vector<string>>("outputs");
 	auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
@@ -570,14 +482,18 @@ int main(int argc, char **argv)
 
 	bool applySelfProbeAdjustment = !noSelfProbe;
 	/* print status */
+	int selfLatency = (int)std::accumulate(larg.samples.back().begin(), larg.samples.back().end(), 0.0) / larg.samples.back().size();
 
 	if (applySelfProbeAdjustment)
 	{
+
+		rendezvous->PushKey(CxxxxStringFormat("selfProbe%d", rank), std::to_string(selfLatency));
+		rendezvous->SynchronousBarrier("selfProbeSubmission");
 		for (int i = 0; i < size - 1; i++)
 		{
 			auto remote = (rank + i + 1) % size;
 			auto remoteSelfLatency = atoi(rendezvous->waitForKey(CxxxxStringFormat("selfProbe%d", remote)).c_str());
-			if(remoteSelfLatency == 0 || selfLatency == 0)
+			if (remoteSelfLatency == 0 || selfLatency == 0)
 			{
 				applySelfProbeAdjustment = false;
 				printf("warning: self probe latency is turned on, but some remote(s) did not have qualified data.\n");

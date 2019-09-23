@@ -27,7 +27,7 @@ std::string dbgStringFromIP(uint8_t ip[4]);
 std::string dbgStringFromMAC(uint8_t mac[6]);
 
 uint16_t pkt_size();
-void pkt_build(char *pkt_ptr,
+uint16_t pkt_build(char *pkt_ptr,
 			   endhost &src,
 			   endhost &des,
 			   pkt_type type, 
@@ -37,7 +37,9 @@ void pkt_build(char *pkt_ptr,
 void pkt_set_attribute(struct rte_mbuf *buf);
 uint16_t udp_checksum(udphdr *, uint32_t, uint32_t);
 void pkt_prepare_reponse(char* pkt_ptr, unsigned short, unsigned short);
-pkt_type pkt_process(rte_mbuf *buf, uint32_t dstip, uint32_t& unsigned short&, unsigned short&);
+//expectedRemote is compared only if a packet of REQ is determined.
+//checksum is compared only if a packet of RES is determined.
+pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumREQ, unsigned short &seq, unsigned short &round);
 void pkt_prepare_request(char* pkt_ptr, unsigned short, unsigned short);
 
 

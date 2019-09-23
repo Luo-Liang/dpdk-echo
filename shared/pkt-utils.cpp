@@ -127,10 +127,11 @@ ip_2_uint32(uint8_t ip[])
 	return myip;
 }
 
-void pkt_build(char *pkt_ptr,
-			   endhost &src,
-			   endhost &des,
-			   pkt_type type, unsigned short sequenceNumber, unsigned short round)
+//returns checksum.
+uint16_t pkt_build(char *pkt_ptr,
+				   endhost &src,
+				   endhost &des,
+				   pkt_type type, unsigned short sequenceNumber, unsigned short round)
 {
 	common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
 
@@ -173,12 +174,13 @@ void pkt_build(char *pkt_ptr,
 																			 //}
 																			 //myhdr->udp.dgram_cksum = udp_checksum(&uhdr, myhdr->ip.src_addr, myhdr->ip.dst_addr);
 	myhdr->ip.hdr_checksum = 0;
-	myhdr->ip.hdr_checksum = rte_ipv4_cksum(&myhdr->ip);																		 //printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
+	myhdr->ip.hdr_checksum = rte_ipv4_cksum(&myhdr->ip); //printf("ip checksum = %d, udp checksum = %d\n", myhdr->ip.hdr_checksum, myhdr->udp.dgram_cksum);
+	return myhdr->udp.dgram_cksum;
 }
 
 void pkt_set_attribute(struct rte_mbuf *buf)
 {
-        buf->ol_flags = PKT_TX_IPV4;
+	buf->ol_flags = PKT_TX_IPV4;
 	buf->l2_len = sizeof(struct ether_hdr);
 	buf->l3_len = sizeof(struct ipv4_hdr);
 }
@@ -192,26 +194,20 @@ void pkt_prepare_request(char *pkt_ptr, unsigned short sequence, unsigned short 
 }
 
 //seq is only populated if a valid response is received.
-pkt_type pkt_process(rte_mbuf *buf, uint32_t dstip, uint32_t& srcip, unsigned short &seq, unsigned short &round)
+//no checksum is performed for 
+//pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemote, ushort checksumResponse, unsigned short &seq, unsigned short &round);
+pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumREQ, unsigned short &seq, unsigned short &round)
 {
 	echo_hdr *mypkt = rte_pktmbuf_mtod(buf, echo_hdr *);
 	seq = mypkt->SEQ;
 	round = mypkt->ROUND;
-	srcip = mypkt->pro_hdr.ip.src_addr;
-	if (mypkt->pro_hdr.ip.dst_addr == ip )
+	if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && checksumREQ == mypkt->pro_hdr.udp.dgram_cksum)
 	{
-		if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
-		{
-			return pkt_type::ECHO_REQ;
-		}
-		else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
-		{
-			return pkt_type::ECHO_RES;
-		}
-		else
-		{
-			return pkt_type::ECHO_IRRELEVANT;
-		}
+		return pkt_type::ECHO_REQ;
+	}
+	else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && expectedRemoteRequesterIP == mypkt->pro_hdr.udp.src_port)
+	{
+		return pkt_type::ECHO_RES;
 	}
 	else
 	{
