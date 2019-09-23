@@ -103,7 +103,8 @@ int ProbeSelfLatency(void *arg)
 	rte_mbuf_refcnt_set(pBuf, selfProbeCount);
 	auto pkt_ptr = rte_pktmbuf_append(pBuf, pkt_size());
 	unsigned short seq = 0;
-	unsigned short round = 0;
+	unsigned short round = 0
+	uint32_t srcip = 0;
 	pkt_build(pkt_ptr, myarg->src, myarg->src, pkt_type::ECHO_REQ, seq, round);
 	//pkt_dump(pBuf);
 	//printf("here2");
@@ -138,7 +139,8 @@ int ProbeSelfLatency(void *arg)
 			end = std::chrono::high_resolution_clock::now();
 			for (int i = 0; i < recv; i++)
 			{
-				if (found == false and pkt_type::ECHO_REQ == pkt_process(rbufs[i], selfProbeIP, seq, round))
+			  auto type = pkt_process(rbufs[i], selfProbeIP, srcip,seq, round);
+			        if (found == false && pkt_type::ECHO_REQ == type && srcip == selfProbeIP)
 				{
 					found = true;
 					selfProbeCount--;
@@ -296,7 +298,9 @@ static int lcore_execute(void *arg)
 				{
 					unsigned short seq = 0;
 					unsigned short r = 0;
-					auto type = pkt_process(rbufs[i], expectedMyIp, seq, r);
+					uint32_t srcip = 0;
+					auto type = pkt_process(rbufs[i], expectedMyIp, srcip, seq, r);
+					if((type == ECHO_RES && srcip != 
 					if (type == ECHO_RES)
 					{
 						if (sendMoreProbe && seq == pid)

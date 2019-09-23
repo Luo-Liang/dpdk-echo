@@ -37,7 +37,7 @@ void pkt_build(char *pkt_ptr,
 void pkt_set_attribute(struct rte_mbuf *buf);
 uint16_t udp_checksum(udphdr *, uint32_t, uint32_t);
 void pkt_prepare_reponse(char* pkt_ptr, unsigned short, unsigned short);
-pkt_type pkt_process(rte_mbuf *buf, uint32_t ip, unsigned short&, unsigned short&);
+pkt_type pkt_process(rte_mbuf *buf, uint32_t dstip, uint32_t& unsigned short&, unsigned short&);
 void pkt_prepare_request(char* pkt_ptr, unsigned short, unsigned short);
 
 

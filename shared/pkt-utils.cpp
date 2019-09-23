@@ -192,12 +192,13 @@ void pkt_prepare_request(char *pkt_ptr, unsigned short sequence, unsigned short 
 }
 
 //seq is only populated if a valid response is received.
-pkt_type pkt_process(rte_mbuf *buf, uint32_t ip, unsigned short &seq, unsigned short &round)
+pkt_type pkt_process(rte_mbuf *buf, uint32_t dstip, uint32_t& srcip, unsigned short &seq, unsigned short &round)
 {
 	echo_hdr *mypkt = rte_pktmbuf_mtod(buf, echo_hdr *);
 	seq = mypkt->SEQ;
 	round = mypkt->ROUND;
-	if (mypkt->pro_hdr.ip.dst_addr == ip)
+	srcip = mypkt->pro_hdr.ip.src_addr;
+	if (mypkt->pro_hdr.ip.dst_addr == ip )
 	{
 		if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0)
 		{
