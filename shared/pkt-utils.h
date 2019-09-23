@@ -67,7 +67,7 @@ uint16_t udp_checksum(udphdr *, uint32_t, uint32_t);
 void pkt_prepare_reponse(char* pkt_ptr, unsigned short, unsigned short);
 //expectedRemote is compared only if a packet of REQ is determined.
 //checksum is compared only if a packet of RES is determined.
-pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumREQ, unsigned short &seq, unsigned short &round);
+pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumRES, unsigned short &seq, unsigned short &round);
 void pkt_prepare_request(char* pkt_ptr, unsigned short, unsigned short);
 
 

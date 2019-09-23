@@ -180,16 +180,16 @@ void pkt_prepare_request(char *pkt_ptr, unsigned short sequence, unsigned short 
 //seq is only populated if a valid response is received.
 //no checksum is performed for 
 //pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemote, ushort checksumResponse, unsigned short &seq, unsigned short &round);
-pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumREQ, unsigned short &seq, unsigned short &round)
+pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumRES, unsigned short &seq, unsigned short &round)
 {
 	echo_hdr *mypkt = rte_pktmbuf_mtod(buf, echo_hdr *);
 	seq = mypkt->SEQ;
 	round = mypkt->ROUND;
-	if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && checksumREQ == mypkt->pro_hdr.udp.dgram_cksum)
+	if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && expectedRemoteRequesterIP == mypkt->pro_hdr.ip.src_addr)
 	{
 		return pkt_type::ECHO_REQ;
 	}
-	else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && expectedRemoteRequesterIP == mypkt->pro_hdr.udp.src_port)
+	else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && checksumRES == mypkt->pro_hdr.udp.dgram_cksum)
 	{
 		return pkt_type::ECHO_RES;
 	}
