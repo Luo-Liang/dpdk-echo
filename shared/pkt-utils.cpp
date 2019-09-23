@@ -61,14 +61,6 @@ std::string dbgStringFromMAC(uint8_t mac[6])
 	return ret;
 }
 
-/* Common Header */
-struct common_hdr
-{
-	struct ether_hdr ether;
-	struct ipv4_hdr ip;
-	struct udp_hdr udp;
-} __attribute__((packed));
-
 /* Application Headers */
 //#define ECHO_PAYLOAD_LEN 5
 //int ECHO_PAYLOAD_LEN = 0;
@@ -99,14 +91,6 @@ void InitializePayloadResponse()
 	//ECHO_PAYLOAD_LEN = pLen;
 }
 
-#define ECHO_PAYLOAD_MAXLEN 2000
-struct echo_hdr
-{
-	struct common_hdr pro_hdr;
-	unsigned short SEQ;
-	unsigned short ROUND;
-	char payload[ECHO_PAYLOAD_MAXLEN];
-} __attribute__((packed));
 
 uint16_t
 pkt_size()
@@ -196,16 +180,16 @@ void pkt_prepare_request(char *pkt_ptr, unsigned short sequence, unsigned short 
 //seq is only populated if a valid response is received.
 //no checksum is performed for 
 //pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemote, ushort checksumResponse, unsigned short &seq, unsigned short &round);
-pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumREQ, unsigned short &seq, unsigned short &round)
+pkt_type pkt_process(rte_mbuf *buf, uint32_t expectedRemoteRequesterIP, uint16_t checksumRES, unsigned short &seq, unsigned short &round)
 {
 	echo_hdr *mypkt = rte_pktmbuf_mtod(buf, echo_hdr *);
 	seq = mypkt->SEQ;
 	round = mypkt->ROUND;
-	if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && checksumREQ == mypkt->pro_hdr.udp.dgram_cksum)
+	if (memcmp(mypkt->payload, reqContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && expectedRemoteRequesterIP == mypkt->pro_hdr.ip.src_addr)
 	{
 		return pkt_type::ECHO_REQ;
 	}
-	else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && expectedRemoteRequesterIP == mypkt->pro_hdr.udp.src_port)
+	else if (memcmp(mypkt->payload, responseContents.c_str(), ECHO_PAYLOAD_LEN) == 0 && checksumRES == mypkt->pro_hdr.udp.dgram_cksum)
 	{
 		return pkt_type::ECHO_RES;
 	}

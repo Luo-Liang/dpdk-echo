@@ -274,8 +274,19 @@ static int lcore_execute(void *arg)
 					}
 					else
 					{
-						printf("[%d][round %d] unknown packet received. \n", myarg->ID, round); //, (uint32_t)elapsed);
-						pkt_dump(resMBufs[pid]);
+						if (myarg->verbose)
+						{
+							echo_hdr *mypkt = rte_pktmbuf_mtod(rbufs[i], echo_hdr *);
+							ETHERIP _ip_;
+							_ip_.ip = mypkt->pro_hdr.ip.src_addr;
+							auto srip = dbgStringFromIP(_ip_.ips);
+							printf("[%d][round %d] unknown packet received from %s. seq = %d. r = %d. PAYLOAD = %s.\n[e]CHKSUM = %d vs %d\n[e]ip %s vs %s.\n", myarg->ID, round, srip.c_str(), seq, r, mypkt->payload, responseChecksums.at(pid), mypkt->pro_hdr.udp.dgram_cksum, dbgStringFromIP(recvOrder.at(round).ip).c_str(), srip.c_str()); //, (uint32_t)elapsed);
+							pkt_dump(resMBufs[pid]);
+						}
+						else
+						{
+							printf("[%d][round %d] unknown packet received\n", myarg->ID, round);
+						}
 					}
 					rte_pktmbuf_free(rbufs[i]);
 				}
