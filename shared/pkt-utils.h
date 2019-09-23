@@ -10,7 +10,10 @@
 #include <string>
 #include <cassert>
 #include <cstdio>
+#include <rte_udp.h>
 #include "dpdk-helpers.h"
+
+#define ECHO_PAYLOAD_MAXLEN 2000
 
 struct udphdr
 {
@@ -19,6 +22,31 @@ struct udphdr
   short uh_ulen;    /* udp length */
   u_short uh_sum;   /* udp checksum */
 };
+
+union ETHERIP
+{
+	uint8_t ips[4];
+	uint32_t ip;
+}__attribute__((packed));
+
+
+/* Common Header */
+struct common_hdr
+{
+	struct ether_hdr ether;
+	struct ipv4_hdr ip;
+	struct udp_hdr udp;
+} __attribute__((packed));
+
+
+struct echo_hdr
+{
+	struct common_hdr pro_hdr;
+	unsigned short SEQ;
+	unsigned short ROUND;
+	char payload[ECHO_PAYLOAD_MAXLEN];
+} __attribute__((packed));
+
 
 void MACFromString(std::string str, uint8_t bytes[6]);
 void IPFromString(std::string str, uint8_t bytes[4]);

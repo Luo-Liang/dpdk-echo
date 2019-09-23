@@ -61,14 +61,6 @@ std::string dbgStringFromMAC(uint8_t mac[6])
 	return ret;
 }
 
-/* Common Header */
-struct common_hdr
-{
-	struct ether_hdr ether;
-	struct ipv4_hdr ip;
-	struct udp_hdr udp;
-} __attribute__((packed));
-
 /* Application Headers */
 //#define ECHO_PAYLOAD_LEN 5
 //int ECHO_PAYLOAD_LEN = 0;
@@ -99,14 +91,6 @@ void InitializePayloadResponse()
 	//ECHO_PAYLOAD_LEN = pLen;
 }
 
-#define ECHO_PAYLOAD_MAXLEN 2000
-struct echo_hdr
-{
-	struct common_hdr pro_hdr;
-	unsigned short SEQ;
-	unsigned short ROUND;
-	char payload[ECHO_PAYLOAD_MAXLEN];
-} __attribute__((packed));
 
 uint16_t
 pkt_size()
