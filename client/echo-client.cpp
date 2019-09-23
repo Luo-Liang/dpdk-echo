@@ -482,7 +482,7 @@ int main(int argc, char **argv)
 
 	bool applySelfProbeAdjustment = !noSelfProbe;
 	/* print status */
-	int selfLatency = (int)std::accumulate(larg.samples.back().begin(), larg.samples.back().end(), 0.0) / larg.samples.back().size();
+	int selfLatency = larg.samples.back().size() == 0 ? 0 : (int)std::accumulate(larg.samples.back().begin(), larg.samples.back().end(), 0.0) / larg.samples.back().size();
 
 	if (applySelfProbeAdjustment)
 	{
