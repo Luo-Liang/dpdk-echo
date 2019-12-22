@@ -200,6 +200,15 @@ public:
 		return result;
 	}
 
+
+  	void ____dbg_push_beacon____(string keyName, string beacon)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex);
+		auto name = CxxxxStringFormat("[%s]%s", prefix.c_str(), keyName.c_str());
+		auto reply = redisCommand(pContext, "LPUSH %s \"%s\"", name.c_str(), beacon.c_str());
+		assert(reply); // << pContext->errstr;
+	}
+
 	void Shutdown()
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex);

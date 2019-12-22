@@ -444,6 +444,7 @@ int main(int argc, char **argv)
 	larg.worldSize = size;
 	rendezvous = new NonblockingSingleBarrier(host, port, prefix, size);
 	rendezvous->Connect();
+	rendezvous->____dbg_push_beacon____("initial_debug","rank");
 	rendezvous->SynchronousBarrier("initial");
 	larg.ID = rank;
 
