@@ -345,7 +345,7 @@ static int lcore_execute(void *arg)
 			auto lines = CxxxxStringSplit(output, '\n');
 			for(auto line : lines)
 			{
-				myarg->samples.at(round).push_back(std::stod(line));
+				myarg->samples.at(round).push_back(std::stod(line) * 1000);
 			}
 		}
 	}
