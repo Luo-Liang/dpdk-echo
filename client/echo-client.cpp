@@ -334,6 +334,20 @@ static int lcore_execute(void *arg)
 				now = std::chrono::high_resolution_clock::now();
 			}
 		}
+
+		if(myarg->samples.at(round).size() == 0)
+		{
+			fprintf(stderr, "Warning:using ping\n");
+			//send ping to myarg->dsts.at(round)
+			auto dstIP = dbgStringFromIP(myarg->dsts.at(round).ip);
+			auto str = std::string("sudo ping -c 20000 -i 0 ") + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
+			auto output = exec(str.c_str());
+			auto lines = CxxxxStringSplit(output, '\n');
+			for(auto line : lines)
+			{
+				myarg->samples.at(round).push_back(std::stod(line));
+			}
+		}
 	}
 	//printf("Thread %d has finished executing.\n", myarg->tid);
 	return 0;

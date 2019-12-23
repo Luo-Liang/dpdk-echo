@@ -71,4 +71,7 @@ void EmitFile(std::string output,
 	std::string sid,
 	std::string did,
 	std::vector<uint64_t>& samples);
+
+std::string exec(const char* cmd);
+std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter);
 #endif /* _CLUSTER_CFG_H */
