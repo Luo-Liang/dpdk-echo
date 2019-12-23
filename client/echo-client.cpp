@@ -388,15 +388,22 @@ int main(int argc, char **argv)
 	ap.addArgument("--verbose", 1, true);
 	ap.addArgument("--payload", 1, true);
 	ap.addArgument("--rendezvous", 1, false);
+	ap.addArgument("--debug", 1, true);
 	//output dids
 	//receive order. This can be irrelevant to dids.
-	int counter = 10;
-	while (counter > 0)
-	{
-		sleep(1);
-		counter--;
-	}
+
 	ap.parse(argc, (const char **)argv);
+
+	
+	if(ap.count("debug") > 0)
+	{
+		int counter = 10;
+		while (counter > 0)
+		{
+			sleep(1);
+			counter--;
+		}
+	}
 
 	std::string localIP = ap.retrieve<std::string>("srcIp");
 	std::string localMAC = ap.retrieve<std::string>("srcMac");
