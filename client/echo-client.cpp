@@ -337,10 +337,10 @@ static int lcore_execute(void *arg)
 
 		if(myarg->samples.at(round).size() == 0)
 		{
-			fprintf(stderr, "Warning:using ping\n");
 			//send ping to myarg->dsts.at(round)
 			auto dstIP = dbgStringFromIP(myarg->dsts.at(round).ip);
 			auto str = std::string("sudo ping -c 20000 -i 0 ") + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
+			fprintf(stderr, "Warning:using ping %s\n", str.c_str());
 			auto output = exec(str.c_str());
 			auto lines = CxxxxStringSplit(output, '\n');
 			for(auto line : lines)
