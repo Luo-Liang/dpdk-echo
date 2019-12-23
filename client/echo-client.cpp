@@ -338,7 +338,7 @@ static int lcore_execute(void *arg)
 		if(myarg->samples.at(round).size() == 0)
 		{
 			//send ping to myarg->dsts.at(round)
-			auto dstIP = dbgStringFromIP(myarg->dsts.at(round).ip);
+			auto dstIP = myarg->communicationIPs.at(round);
 			auto str = std::string("sudo ping -c 20000 -i 0 ") + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
 			fprintf(stderr, "Warning:using ping %s\n", str.c_str());
 			auto output = exec(str.c_str());
@@ -494,6 +494,7 @@ int main(int argc, char **argv)
 	larg.AzureSupport = MSFTAZ;
 	larg.interval = interval;
 	larg.verbose = verbose;
+	larg.communicationIPs = dids;
 	larg.dsts.resize(dstMacs.size());
 	for (int i = 0; i < (int)dstMacs.size(); i++)
 	{
