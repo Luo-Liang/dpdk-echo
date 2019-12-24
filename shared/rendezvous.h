@@ -71,7 +71,7 @@ class NonblockingSingleBarrier
 	std::unordered_set<std::string> dbgSubmissions;
 
 	std::deque<std::string> workQueue;
-	const int TIME_INTERVAL = 100000; //100ms
+	const int TIME_INTERVAL = 256000; //100ms
 	//strictly only allows sequential polling.
 	void RoutineLoop()
 	{

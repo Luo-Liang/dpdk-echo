@@ -337,16 +337,19 @@ static int lcore_execute(void *arg)
 
 		if(myarg->samples.at(round).size() == 0)
 		{
-			//send ping to myarg->dsts.at(round)
-			auto dstIP = myarg->communicationIPs.at(round);
-			auto str = std::string("sudo ping -c 20000 -i 0 ") + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
-			fprintf(stderr, "Warning:using ping %s\n", str.c_str());
-			auto output = exec(str.c_str());
-			auto lines = CxxxxStringSplit(output, '\n');
-			for(auto line : lines)
-			{
-				myarg->samples.at(round).push_back(std::stod(line));
-			}
+		  auto pingStart = std::chrono::high_resolution_clock::now();
+		  //send ping to myarg->dsts.at(round)
+		  auto dstIP = myarg->communicationIPs.at(round);
+		  auto str = std::string("sudo ping -c 20000 -i 0 ") + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
+
+		  auto output = exec(str.c_str());
+		  auto lines = CxxxxStringSplit(output, '\n');
+		  for(auto line : lines)
+		    {
+		      myarg->samples.at(round).push_back(std::stod(line));
+		    }
+		  auto pingEnd = std::chrono::high_resolution_clock::now();
+		  fprintf(stderr, "ping = %s. duration = %d ms.", str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
 		}
 	}
 	//printf("Thread %d has finished executing.\n", myarg->tid);
