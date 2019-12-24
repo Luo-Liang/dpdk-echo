@@ -295,7 +295,7 @@ static int lcore_execute(void *arg)
 				if (sendMoreProbe && found == false)
 				{
 					//timeout and recovery only relevant if more packets are sent.
-					const size_t TIME_OUT = 1000000000ULL;
+					const size_t TIME_OUT = 100000000ULL;
 					size_t timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); // getDuration(end, start);
 					if (timeDelta > TIME_OUT)
 					{
@@ -347,7 +347,8 @@ static int lcore_execute(void *arg)
 		  auto lines = CxxxxStringSplit(output, '\n');
 		  for(auto line : lines)
 		    {
-		      myarg->samples.at(round).push_back(std::stod(line));
+		      //nanonsecond :)
+		      myarg->samples.at(round).push_back(std::stod(line) * 1000 * 1000);
 		    }
 		  auto pingEnd = std::chrono::high_resolution_clock::now();
 		  fprintf(stderr, "ping = %s. duration = %d ms.", str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
