@@ -104,6 +104,17 @@ void requestBuffers(rte_mempool *pool, int samples, rte_mbuf **&mBufs, char **&p
 	}
 }
 
+int SaferAtoi(std::string response)
+{
+	std::size_t index = 0;
+	auto result = std::stoi(response, &index);
+	if(index != response.length()) // << response << " cannot be fully converted";
+	  {
+	    throw response;
+	  }
+	return result;
+}
+
 static int lcore_execute(void *arg)
 {
 	struct lcore_args *myarg;
@@ -394,6 +405,9 @@ int main(int argc, char **argv)
 	ap.addArgument("--payload", 1, true);
 	ap.addArgument("--rendezvous", 1, false);
 	ap.addArgument("--debug", 1, true);
+	//use a process banner to reduce amount of data transferred.
+	//a banner looks like this 'BENCHMARK:DPDK-ECHO;SELF_TEST_OPTION:FALSE;DIMENSION:%d;VALUE:%s;PREPROCESS:0;NORMALIZER:1000;LOCALDIGEST=TRUE\r\n'
+	ap.addArgument("--processBanner", 1, false);
 	//output dids
 	//receive order. This can be irrelevant to dids.
 
@@ -508,12 +522,32 @@ int main(int argc, char **argv)
 	}
 	lcore_execute(&larg);
 
-	printf("All threads have finished executing.\n");
 
+	auto banner = ap.retrieve<std::string>("processBanner");
+	//std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter);
+	auto splits = CxxxxStringSplit(banner, ';');
+	// 'BENCHMARK:DPDK-ECHO;SELF_TEST_OPTION:FALSE;DIMENSION:%d;VALUE:%s;PREPROCESS:0;NORMALIZER:1000\r\n'
+	int normalizer = 1000;
+	double percentile = 0.1;
+	for(auto item : splits)
+	  {
+	    auto segs = CxxxxStringSplit(banner, ':');
+	    if(segs[0] == "NORMALIZER")
+	      {
+		normalizer = SaferAtoi(segs[1]);
+	      }
+	    else if(seg[0] == "VALUE")
+	      {
+		percentile = SaferAtoi(segs[1]) / 100.0;
+	      }
+	  }
+	std::unordered_map<std::string, std::int> values; // = std::unordered_map<std::string, std::int>();
+	
 	for (int i = 0; i < size; i++)
 	{
 		EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
 	}
 	//free(largs);
+	fprintf(stderr, "All threads have finished executing. normalizer = %d, percentile = %d\n");	
 	return 0;
 }
