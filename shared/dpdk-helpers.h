@@ -75,4 +75,5 @@ void EmitFile(std::string output,
 
 std::string exec(const char* cmd);
 std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter);
+int ComputeValue(std::vector<uint64_t>& samples, int normalizer, double percentile);
 #endif /* _CLUSTER_CFG_H */

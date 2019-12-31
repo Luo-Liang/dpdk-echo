@@ -108,10 +108,10 @@ int SaferAtoi(std::string response)
 {
 	std::size_t index = 0;
 	auto result = std::stoi(response, &index);
-	if(index != response.length()) // << response << " cannot be fully converted";
-	  {
-	    throw response;
-	  }
+	if (index != response.length()) // << response << " cannot be fully converted";
+	{
+		throw response;
+	}
 	return result;
 }
 
@@ -346,23 +346,23 @@ static int lcore_execute(void *arg)
 			}
 		}
 
-		if(myarg->samples.at(round).size() == 0)
+		if (myarg->samples.at(round).size() == 0)
 		{
-		  auto pingSamples = samples / 10 == 0 ? 1 : samples / 10;
-		  auto pingStart = std::chrono::high_resolution_clock::now();
-		  //send ping to myarg->dsts.at(round)
-		  auto dstIP = myarg->communicationIPs.at(round);
-		  auto str = std::string("sudo ping -c ") + std::to_string(pingSamples) + " -i 0 " + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
+			auto pingSamples = samples / 10 == 0 ? 1 : samples / 10;
+			auto pingStart = std::chrono::high_resolution_clock::now();
+			//send ping to myarg->dsts.at(round)
+			auto dstIP = myarg->communicationIPs.at(round);
+			auto str = std::string("sudo ping -c ") + std::to_string(pingSamples) + " -i 0 " + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
 
-		  auto output = exec(str.c_str());
-		  auto lines = CxxxxStringSplit(output, '\n');
-		  for(auto line : lines)
-		    {
-		      //nanonsecond :)
-		      myarg->samples.at(round).push_back(std::stod(line) * 1000 * 1000);
-		    }
-		  auto pingEnd = std::chrono::high_resolution_clock::now();
-		  fprintf(stderr, "ping = %s. duration = %d ms.", str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
+			auto output = exec(str.c_str());
+			auto lines = CxxxxStringSplit(output, '\n');
+			for (auto line : lines)
+			{
+				//nanonsecond :)
+				myarg->samples.at(round).push_back(std::stod(line) * 1000 * 1000);
+			}
+			auto pingEnd = std::chrono::high_resolution_clock::now();
+			fprintf(stderr, "ping = %s. duration = %d ms.", str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
 		}
 	}
 	//printf("Thread %d has finished executing.\n", myarg->tid);
@@ -397,7 +397,7 @@ int main(int argc, char **argv)
 	ap.addArgument("--sid", 1, false);
 	ap.addArgument("--dids", '+', false);
 	ap.addArgument("--blocked", true);
-	ap.addArgument("--outputs", '+', false);
+	ap.addArgument("--output", 1 , false);
 	//enable Windows Azure support
 	ap.addArgument("--interval", 1, true);
 	ap.addArgument("--az", 1, true);
@@ -413,8 +413,7 @@ int main(int argc, char **argv)
 
 	ap.parse(argc, (const char **)argv);
 
-	
-	if(ap.count("debug") > 0)
+	if (ap.count("debug") > 0)
 	{
 		int counter = 10;
 		while (counter > 0)
@@ -484,7 +483,7 @@ int main(int argc, char **argv)
 	larg.worldSize = size;
 	rendezvous = new NonblockingSingleBarrier(host, port, prefix, size);
 	rendezvous->Connect();
-	rendezvous->____dbg_push_beacon____("initial_debug",std::to_string(rank));
+	rendezvous->____dbg_push_beacon____("initial_debug", std::to_string(rank));
 	rendezvous->SynchronousBarrier("initial");
 	larg.ID = rank;
 
@@ -496,11 +495,11 @@ int main(int argc, char **argv)
 
 	//contribute to self latency to redis.
 
-	auto outputs = ap.retrieve<std::vector<string>>("outputs");
+	auto outputs = ap.retrieve<std::string>("outputs");
 	auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
 	auto dstMacs = ap.retrieve<std::vector<std::string>>("dstMacs");
 	auto dids = ap.retrieve<std::vector<std::string>>("dids");
-	if (dstIps.size() != dstMacs.size() || dstMacs.size() != dids.size() || dids.size() != outputs.size())
+	if (dstIps.size() != dstMacs.size() || dstMacs.size() != dids.size())
 	{
 		rte_exit(EXIT_FAILURE, "specify same number of destination ips and macs and remote ids.");
 	}
@@ -522,32 +521,34 @@ int main(int argc, char **argv)
 	}
 	lcore_execute(&larg);
 
-
 	auto banner = ap.retrieve<std::string>("processBanner");
 	//std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter);
 	auto splits = CxxxxStringSplit(banner, ';');
 	// 'BENCHMARK:DPDK-ECHO;SELF_TEST_OPTION:FALSE;DIMENSION:%d;VALUE:%s;PREPROCESS:0;NORMALIZER:1000\r\n'
 	int normalizer = 1000;
 	double percentile = 0.1;
-	for(auto item : splits)
-	  {
-	    auto segs = CxxxxStringSplit(banner, ':');
-	    if(segs[0] == "NORMALIZER")
-	      {
-		normalizer = SaferAtoi(segs[1]);
-	      }
-	    else if(seg[0] == "VALUE")
-	      {
-		percentile = SaferAtoi(segs[1]) / 100.0;
-	      }
-	  }
+	for (auto item : splits)
+	{
+		auto segs = CxxxxStringSplit(banner, ':');
+		if (segs[0] == "NORMALIZER")
+		{
+			normalizer = SaferAtoi(segs[1]);
+		}
+		else if (seg[0] == "VALUE")
+		{
+			percentile = SaferAtoi(segs[1]) / 100.0;
+		}
+	}
 	std::unordered_map<std::string, std::int> values; // = std::unordered_map<std::string, std::int>();
-	
+
 	for (int i = 0; i < size; i++)
 	{
-		EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i));
+		//int ComputeValue(std::vector<uint64_t>& samples, int normalizer, double percentile);
+		values[dids.at(i)] = ComputeValue(largs.samples.at(i), normalizer, percentile);
+		//EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i), );
 	}
+	EmitFile(outputs, values);
 	//free(largs);
-	fprintf(stderr, "All threads have finished executing. normalizer = %d, percentile = %d\n");	
+	fprintf(stderr, "All threads have finished executing. normalizer = %d, percentile = %d\n", normalizer, percentile);
 	return 0;
 }
