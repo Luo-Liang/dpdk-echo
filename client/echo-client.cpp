@@ -534,21 +534,21 @@ int main(int argc, char **argv)
 		{
 			normalizer = SaferAtoi(segs[1]);
 		}
-		else if (seg[0] == "VALUE")
+		else if (segs[0] == "VALUE")
 		{
 			percentile = SaferAtoi(segs[1]) / 100.0;
 		}
 	}
-	std::unordered_map<std::string, std::int> values; // = std::unordered_map<std::string, std::int>();
+	std::unordered_map<std::string, int> values; // = std::unordered_map<std::string, std::int>();
 
 	for (int i = 0; i < size; i++)
 	{
 		//int ComputeValue(std::vector<uint64_t>& samples, int normalizer, double percentile);
-		values[dids.at(i)] = ComputeValue(largs.samples.at(i), normalizer, percentile);
+		values[dids.at(i)] = ComputeValue(larg.samples.at(i), normalizer, percentile);
 		//EmitFile(outputs.at(i), sid, dids.at(i), larg.samples.at(i), );
 	}
 	EmitFile(outputs, values);
 	//free(largs);
-	fprintf(stderr, "All threads have finished executing. normalizer = %d, percentile = %d\n", normalizer, percentile);
+	fprintf(stderr, "All threads have finished executing. normalizer = %d, percentile = %f\n", normalizer, percentile);
 	return 0;
 }

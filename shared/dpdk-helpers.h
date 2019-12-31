@@ -21,6 +21,7 @@
 #include "argparse.h"
 #include <iostream>
 #include <fstream>
+#include "json.hpp"
 
 #define NUM_MBUFS 65535
 #define MBUF_CACHE_SIZE 255
@@ -76,4 +77,6 @@ void EmitFile(std::string output,
 std::string exec(const char* cmd);
 std::vector<std::string> CxxxxStringSplit(const std::string &s, char delimiter);
 int ComputeValue(std::vector<uint64_t>& samples, int normalizer, double percentile);
+void EmitFile(std::string &output,
+              std::unordered_map<std::string, int> &value);
 #endif /* _CLUSTER_CFG_H */

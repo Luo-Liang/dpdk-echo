@@ -203,11 +203,7 @@ void EmitFile(std::string &output,
     }
     std::ofstream ofile;
     ofile.open(output);
-    for (auto t : samples)
-    {
-        //from, to, ping result
-        ofile << j.dump();
-    }
+    ofile << j.dump();
     ofile.close();
 }
 
