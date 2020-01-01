@@ -495,7 +495,7 @@ int main(int argc, char **argv)
 
 	//contribute to self latency to redis.
 
-	auto outputs = ap.retrieve<std::string>("outputs");
+	auto outputs = ap.retrieve<std::string>("output");
 	auto dstIps = ap.retrieve<std::vector<std::string>>("dstIps");
 	auto dstMacs = ap.retrieve<std::vector<std::string>>("dstMacs");
 	auto dids = ap.retrieve<std::vector<std::string>>("dids");
