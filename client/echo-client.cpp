@@ -348,11 +348,11 @@ static int lcore_execute(void *arg)
 
 		if (myarg->samples.at(round).size() == 0)
 		{
-			auto pingSamples = samples / 10 == 0 ? 1 : samples / 10;
+			auto pingSamples = samples / 10 == 0 ? 100 : samples / 40;
 			auto pingStart = std::chrono::high_resolution_clock::now();
 			//send ping to myarg->dsts.at(round)
 			auto dstIP = myarg->communicationIPs.at(round);
-			auto str = std::string("sudo ping -c ") + std::to_string(pingSamples) + " -i 0 " + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
+			auto str = std::string("sudo ping -c ") + std::to_string(pingSamples) + " -i 0.002 " + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
 
 			auto output = exec(str.c_str());
 			auto lines = CxxxxStringSplit(output, '\n');
