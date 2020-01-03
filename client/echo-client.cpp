@@ -184,6 +184,7 @@ static int lcore_execute(void *arg)
 		uint32_t reqSenderIP = ip_2_uint32(recvOrder.at(round).ip);
 
 		int consecTimeouts = 0;
+		rendezvous->____dbg_push_beacon____(std::to_string(round) + "_round_" , std::to_string(myarg->ID));		
 		rendezvous->SynchronousBarrier(CxxxxStringFormat("initialize round %d", round));
 		int pid = 0;
 		auto sendMoreProbe = (pid < myarg->counter && consecTimeouts < TIME_OUT_COUNTS);
