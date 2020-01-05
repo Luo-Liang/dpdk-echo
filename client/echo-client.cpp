@@ -530,7 +530,8 @@ int main(int argc, char **argv)
 	double percentile = 0.1;
 	for (auto item : splits)
 	{
-		auto segs = CxxxxStringSplit(banner, ':');
+		auto segs = CxxxxStringSplit(item, ':');
+		//printf("seg[0] = %s, seg[1] = %s\n", segs[0].c_str(), segs[1].c_str());
 		if (segs[0] == "NORMALIZER")
 		{
 			normalizer = SaferAtoi(segs[1]);
