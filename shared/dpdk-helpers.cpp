@@ -40,7 +40,7 @@ int port_init(lcore_args *larg, std::string srcIp, std::string srcMac, std::vect
     //port_conf_default.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_IP;
     //port_conf_default.txmode.offloads = DEV_TX_OFFLOAD_UDP_CKSUM | DEV_TX_OFFLOAD_IPV4_CKSUM;
     port_conf_default.txmode.mq_mode = ETH_MQ_TX_NONE;
-    struct rte_eth_conf port_conf = port_conf_default;
+    rte_eth_conf port_conf = port_conf_default;
     uint8_t q, rx_rings, tx_rings, nb_ports;
     char bufpool_name[32];
 
@@ -58,7 +58,7 @@ int port_init(lcore_args *larg, std::string srcIp, std::string srcMac, std::vect
     //nb_ports = 1;
     for (int i = 0; i < nb_ports; i++)
     {
-        ether_addr tmp;
+        rte_ether_addr tmp;
         rte_eth_macaddr_get(i, &tmp);
         char macStr[18];
         snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -89,13 +89,13 @@ int port_init(lcore_args *larg, std::string srcIp, std::string srcMac, std::vect
     //largs[i].src_id = (int *)malloc(sizeof(int) * nb_ports);
     //largs[i].srcMacs.resize(nb_ports);
     auto port = larg->associatedPort;
-    ether_addr tmp;
+    rte_ether_addr tmp;
     rte_eth_macaddr_get(port, &tmp);
     char macStr[18];
     snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
              tmp.addr_bytes[0], tmp.addr_bytes[1], tmp.addr_bytes[2], tmp.addr_bytes[3], tmp.addr_bytes[4], tmp.addr_bytes[5]);
     std::string macString(macStr);
-    rte_eth_macaddr_get(port, (ether_addr *)larg->src.mac);
+    rte_eth_macaddr_get(port, (rte_ether_addr *)larg->src.mac);
     //since nb_ports < suppliedIp.size, assign port-th to suppliedIps
     IPFromString(srcIp, larg->src.ip);
     //largs[i].srcMacs.push_back( = get_endhost_id(myaddr);

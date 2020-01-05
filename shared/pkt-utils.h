@@ -33,15 +33,15 @@ union ETHERIP
 /* Common Header */
 struct common_hdr
 {
-	struct ether_hdr ether;
-	struct ipv4_hdr ip;
-	struct udp_hdr udp;
+	rte_ether_hdr ether;
+	rte_ipv4_hdr ip;
+	rte_udp_hdr udp;
 } __attribute__((packed));
 
 
 struct echo_hdr
 {
-	struct common_hdr pro_hdr;
+	common_hdr pro_hdr;
 	unsigned short SEQ;
 	unsigned short ROUND;
 	char payload[ECHO_PAYLOAD_MAXLEN];

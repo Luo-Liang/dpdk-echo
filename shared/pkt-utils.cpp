@@ -120,9 +120,9 @@ uint16_t pkt_build(char *pkt_ptr,
 	common_hdr *myhdr = (struct common_hdr *)pkt_ptr;
 
 	// Ethernet header
-	rte_memcpy(myhdr->ether.d_addr.addr_bytes, des.mac, ETHER_ADDR_LEN);
-	rte_memcpy(myhdr->ether.s_addr.addr_bytes, src.mac, ETHER_ADDR_LEN);
-	myhdr->ether.ether_type = htons(ETHER_TYPE_IPv4);
+	rte_memcpy(myhdr->ether.d_addr.addr_bytes, des.mac, RTE_ETHER_ADDR_LEN);
+	rte_memcpy(myhdr->ether.s_addr.addr_bytes, src.mac, RTE_ETHER_ADDR_LEN);
+	myhdr->ether.ether_type = htons(RTE_ETHER_TYPE_IPV4);
 	// IP header
 	myhdr->ip.version_ihl = 0x45;
 	myhdr->ip.total_length = htons(pkt_size() - ETHER_HEADER_LEN);
@@ -165,8 +165,8 @@ uint16_t pkt_build(char *pkt_ptr,
 void pkt_set_attribute(struct rte_mbuf *buf)
 {
 	buf->ol_flags = PKT_TX_IPV4;
-	buf->l2_len = sizeof(struct ether_hdr);
-	buf->l3_len = sizeof(struct ipv4_hdr);
+	buf->l2_len = sizeof(rte_ether_hdr);
+	buf->l3_len = sizeof(rte_ipv4_hdr);
 }
 
 void pkt_prepare_request(char *pkt_ptr, unsigned short sequence, unsigned short round)

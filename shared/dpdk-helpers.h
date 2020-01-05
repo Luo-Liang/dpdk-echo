@@ -40,7 +40,7 @@ enum pkt_type
 
 struct endhost
 {
-	uint8_t mac[ETHER_ADDR_LEN];
+	uint8_t mac[RTE_ETHER_ADDR_LEN];
 	uint8_t ip[IPV4_ADDR_LEN];
 } __attribute__((packed));
 
