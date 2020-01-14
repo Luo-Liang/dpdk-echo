@@ -138,6 +138,10 @@ public:
 		std::lock_guard<std::recursive_mutex> lock(mutex);
 		pContext = redisConnect(IP.c_str(), (int)Port);
 		assert(pContext != NULL);
+		if(pContext->err != 0)
+		  {
+		    fprintf(stderr, "connection error with redis: %s\n", pContext->errstr);
+		  }
 		assert(pContext->err == 0); // << pContext->errstr;
 									//clean up old dbs.
 									//CHECK(redisCommand(pContext, "FLUSHALL"));
