@@ -35,3 +35,5 @@ An example invocation is provided as follow. Run this on all nodes.
         
 Where `srcIp` and `srcMac` is a node's *communication* IP address and MAC.  `dstIps` and `dstMacs` are lists of *probing* IP addresses and MACs for all the ranks (including this node's). The order must match. `samples` is the number of probes to run per pair. `sid` is a nickname (identifier) for the current node. It is usually set to a hostname. `dids` include all the nicknames of all nodes. `output` is where the output file will be written. `rendezvous` is where the redis resides, it expects a format of: `rendezvous = "%s:%s:%s:%s:%s" % (redisIp, redisPort, "probe-prefix", world_size, myRank)`. `processBanner` is an arbitrary string that appears on top of all the output file.
 .
+
+Credits to Ming Liu for the first version of this tool, and various stackoverflow sources for snippets.
