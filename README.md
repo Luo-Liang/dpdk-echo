@@ -8,6 +8,8 @@ On EC2, make sure Enhanced Networking is enabled, and Enhanced Networking Adapat
 
 # Installation
 
+This tool requires Python.
+
 Use the `build.sh` script provided to build the tool. Make sure you change the script to reflect the correct directories that DPDK is installed in.
 
 # Running
