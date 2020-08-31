@@ -353,6 +353,7 @@ static int lcore_execute(void *arg)
 			auto pingStart = std::chrono::high_resolution_clock::now();
 			//send ping to myarg->dsts.at(round)
 			auto dstIP = myarg->communicationIPs.at(round);
+			auto sid = myarg->sid;
 			auto str = std::string("fping -c ") + std::to_string(pingSamples) + " -i 0 -p 1 " + dstIP + " | awk -F',' -F' ' 'NF {print $6}' | awk NF";
 			//auto str = std::string("sudo ping -c ") + std::to_string(pingSamples) + " -i 0.002 " + dstIP + " | awk -F\"time=\" 'NR>=0 {gsub(/ms/,X,$2);print $2}' | awk NF";
 			auto output = exec(str.c_str());
@@ -363,7 +364,7 @@ static int lcore_execute(void *arg)
 				myarg->samples.at(round).push_back(std::stod(line) * 1000 * 1000);
 			}
 			auto pingEnd = std::chrono::high_resolution_clock::now();
-			fprintf(stderr, "ping = %s. duration = %d ms.", str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
+			fprintf(stderr, "[sid=%s],ping = %s. duration = %d ms.", sid.c_str(), str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
 		}
 	}
 	//printf("Thread %d has finished executing.\n", myarg->tid);
@@ -515,6 +516,7 @@ int main(int argc, char **argv)
 	larg.verbose = verbose;
 	larg.communicationIPs = dids;
 	larg.dsts.resize(dstMacs.size());
+	larg.sid = sid;
 	for (int i = 0; i < (int)dstMacs.size(); i++)
 	{
 		IPFromString(dstIps.at(i), larg.dsts.at(i).ip);

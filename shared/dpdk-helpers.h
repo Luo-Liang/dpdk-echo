@@ -53,6 +53,7 @@ struct lcore_args
 	struct rte_mempool* pool;
 	std::vector<std::vector<uint64_t>> samples;
 	std::vector<std::string> communicationIPs;
+        std::string sid;
 	int counter;
 	uint32_t associatedPort;
 	//std::vector<uint32_t> coreIdx2LCoreId;
