@@ -364,7 +364,7 @@ static int lcore_execute(void *arg)
 				myarg->samples.at(round).push_back(std::stod(line) * 1000 * 1000);
 			}
 			auto pingEnd = std::chrono::high_resolution_clock::now();
-			fprintf(stderr, "[sid=%s],ping = %s. duration = %d ms.", sid.c_str(), str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
+			fprintf(stderr, "[sid=%s @ r=%d],ping = %s. duration = %d ms.", sid.c_str(), round, str.c_str(), (int)std::chrono::duration_cast<std::chrono::milliseconds>(pingEnd - pingStart).count());
 		}
 	}
 	//printf("Thread %d has finished executing.\n", myarg->tid);
